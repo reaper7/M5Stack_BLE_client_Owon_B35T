@@ -12,5 +12,5 @@ I do not have free time to clean it up and polish.
 
 2018 Reaper7
 
-If You like it, buy me a beer:
+If You like it, buy me a beer:<br>
 [paypal.me/reaper7md](https://www.paypal.me/reaper7md)
