@@ -1,6 +1,6 @@
 # ESP32 M5Stack BLE client for OWON B35T meter
 
-You can read and control remotely Owon B35T meter
+You can remotely read and control Owon B35T meter
 
 P.S. current changes in arduino-esp32 git (after 04.03.2018) cause increase final sketch size over the permissible size (https://github.com/espressif/arduino-esp32/issues/1194),<br>
 one of the possibilities is increasing app partition size as wrote in this excellent blog:<br>
