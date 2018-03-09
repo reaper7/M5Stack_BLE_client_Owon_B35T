@@ -1,5 +1,4 @@
-# M5Stack_BLE_client_Owon_B35T
-ESP32 M5Stack BLE client OWON B35T meter
+# ESP32 M5Stack BLE client for OWON B35T meter
 
 You can read and control remotely Owon B35T meter
 
