@@ -2,6 +2,9 @@
 
 You can read and control remotely Owon B35T meter
 
+P.S. current changes in arduino-esp32 git (after 04.03.2018) cause increase final sketch size over the permissible size (https://github.com/espressif/arduino-esp32/issues/1194),<br>
+one of the possibilities is increasing app partition as wrote in this excellent blog: http://desire.giesecke.tk/index.php/2018/01/30/change-partition-size/
+
 ![remote meter 1](https://github.com/reaper7/M5Stack_BLE_client_Owon_B35T/blob/master/docs/m5stack.jpg)
 
 ![remote meter 2](https://github.com/reaper7/M5Stack_BLE_client_Owon_B35T/blob/master/docs/m5stack_meter.jpg)
