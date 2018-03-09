@@ -69,7 +69,7 @@ uint8_t owonBtnArray[owonBtnArraySize] = {btnNumber, btnShortPress};            
 // bat meter MAX17043 1-Cell Fuel Gauge
 static uint16_t batReadEvery = 10000;                                           // read MAX17043 every 10000 sec
 static unsigned long batNextReadTime = 0;                                       // time for next read MAX17043 in ms
-const uint8_t MAX17043ADDR=0x46;                                                // MAX17043 i2c addr
+const uint8_t MAX17043ADDR=0x36;                                                // MAX17043 i2c addr
 const uint8_t MAX17043CMDADDR=0xFE;                                             // MAX17043 command register addr
 const uint8_t MAX17043SOCADDR=0x04;                                             // MAX17043 soc data addr
 const uint8_t MAX17043VCELLADDR=0x02;                                           // MAX17043 voltage data addr
