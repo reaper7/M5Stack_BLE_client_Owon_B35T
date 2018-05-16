@@ -21,11 +21,12 @@
 #include <BLEScan.h>
 #include <BLEUtils.h>
 
-#include <M5Stack.h>
+#include <M5Stack.h>                                                            // M5Stack lib >= 0.1.9
+#include "M5StackUpdater.h"                                                     // https://github.com/tobozo/M5Stack-SD-Updater
 
 #include "meter_graphics.h"
 
-#define MYDEBUG
+//#define MYDEBUG
 #ifdef MYDEBUG
 #define DEBUG_MSG(...) Serial.printf( __VA_ARGS__ )
 #else
@@ -199,6 +200,12 @@ const uint8_t MAX17043VCELLADDR=0x02;                                           
 */
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+void drawIcon(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, const uint8_t* data, uint16_t color) {
+  M5.Lcd.setBitmapColor(color, BACKGROUND);
+  //M5.Lcd.pushImage((int32_t)x0, (int32_t)y0, (uint32_t)w, (uint32_t)h, const_cast<uint8_t*>(data), false);
+  M5.Lcd.pushImage((int32_t)x0, (int32_t)y0, (uint32_t)w, (uint32_t)h, const_cast<uint8_t*>(data), 0, false);
+}
+//------------------------------------------------------------------------------
 /*
 void batMeterInit() {                                                           // reset MAX17043
   Wire.beginTransmission(MAX17043ADDR);
@@ -220,11 +227,11 @@ void batCheckDraw() {
   Wire.requestFrom(MAX17043ADDR, (uint8_t)2);
   soc = Wire.read() + (double) Wire.read() / 256;
   //based on soc
-  M5.Lcd.fillRect(WACCUPOSX + 2, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>75?TFT_GREEN:COLORNOTACTIVE);
-  M5.Lcd.fillRect(WACCUPOSX + 5, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>50?TFT_GREEN:COLORNOTACTIVE);
-  M5.Lcd.fillRect(WACCUPOSX + 8, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>25?TFT_GREEN:COLORNOTACTIVE);
-  M5.Lcd.fillRect(WACCUPOSX + 11, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>5?TFT_GREEN:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WACCUPOSX, TOPROWPOSY, ACCU_BMP, ICONW, ICONH, soc>0?COLORICONACCU:COLORNOTACTIVE);
+  M5.Lcd.fillRect(WACCUPOSX + 2, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>75?COLORICONACCU:COLORNOTACTIVE);
+  M5.Lcd.fillRect(WACCUPOSX + 5, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>50?COLORICONACCU:COLORNOTACTIVE);
+  M5.Lcd.fillRect(WACCUPOSX + 8, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>25?COLORICONACCU:COLORNOTACTIVE);
+  M5.Lcd.fillRect(WACCUPOSX + 11, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>5?COLORICONACCU:COLORNOTACTIVE);
+  drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONACCU:COLORNOTACTIVE);
   DEBUG_MSG(" SoC: %6.2f%%", soc);
 /*
   double volt = 0;
@@ -242,7 +249,7 @@ void batCheckDraw() {
   M5.Lcd.fillRect(WACCUPOSX + 5, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, volt>3.7?TFT_GREEN:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 8, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, volt>3.5?TFT_GREEN:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 11, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, volt>3.3?TFT_GREEN:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WACCUPOSX, TOPROWPOSY, ACCU_BMP, ICONW, ICONH, volt>0?COLORICONACCU:COLORNOTACTIVE);
+  drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, volt>0?COLORICONACCU:COLORNOTACTIVE);
   DEBUG_MSG(" Volt: %4.2fV", volt);
 */
   DEBUG_MSG("\n");
@@ -269,7 +276,7 @@ void drawBarGraph(bool active = true) {
   uint16_t digall=0;
 
   if (active == false) {
-    M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_WIDTH - 70, 2, COLORNOTACTIVE); // bargraph bottom init scale
+    M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_HEIGHT - 70, 2, COLORNOTACTIVE); // bargraph bottom init scale
   } else {  
     if (valuechar[REGDIG1] >= 0x30 && valuechar[REGDIG1] <= 0x39)
       dig1 = (valuechar[REGDIG1] - 0x30) * 1000;
@@ -305,18 +312,18 @@ void drawBarGraph(bool active = true) {
 }
 //------------------------------------------------------------------------------
 void displayShow(bool active = false) {
-  M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WAUTOPOSX, TOPROWPOSY, AUTO_BMP, ICONW*2, ICONH, active == true?COLORICONAUTO:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WMAXPOSX, TOPROWPOSY, MAX_BMP, ICONW*2, ICONH, active == true?COLORICONMAX:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WMINPOSX, TOPROWPOSY, MIN_BMP, ICONW*2, ICONH, active == true?COLORICONMIN:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WHOLDPOSX, TOPROWPOSY, HOLD_BMP, ICONW, ICONH, active == true?COLORICONHOLD:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WRELPOSX, TOPROWPOSY, REL_BMP, ICONW, ICONH, active == true?COLORICONREL:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WDIODEPOSX, TOPROWPOSY, DIODE_BMP, ICONW, ICONH, active == true?COLORICONDIODE:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WBUZZPOSX, TOPROWPOSY, BUZZ_BMP, ICONW, ICONH, active == true?COLORICONBUZZ:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(WHVPOSX, TOPROWPOSY, HV_BMP, ICONW, ICONH, active == true?COLORICONHV:COLORNOTACTIVE);
+  drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
+  drawIcon(WAUTOPOSX, TOPROWPOSY, ICONW*2, ICONH, AUTO_BMP, active == true?COLORICONAUTO:COLORNOTACTIVE);
+  drawIcon(WMAXPOSX, TOPROWPOSY, ICONW*2, ICONH, MAX_BMP, active == true?COLORICONMAX:COLORNOTACTIVE);
+  drawIcon(WMINPOSX, TOPROWPOSY, ICONW*2, ICONH, MIN_BMP, active == true?COLORICONMIN:COLORNOTACTIVE);
+  drawIcon(WHOLDPOSX, TOPROWPOSY, ICONW, ICONH, HOLD_BMP, active == true?COLORICONHOLD:COLORNOTACTIVE);
+  drawIcon(WRELPOSX, TOPROWPOSY, ICONW, ICONH, REL_BMP, active == true?COLORICONREL:COLORNOTACTIVE);
+  drawIcon(WDIODEPOSX, TOPROWPOSY, ICONW, ICONH, DIODE_BMP, active == true?COLORICONDIODE:COLORNOTACTIVE);
+  drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, active == true?COLORICONBUZZ:COLORNOTACTIVE);
+  drawIcon(WHVPOSX, TOPROWPOSY, ICONW, ICONH, HV_BMP, active == true?COLORICONHV:COLORNOTACTIVE);
 
-  M5.Lcd.drawBitmap(DCPOSX, DCPOSY, DC_BMP, ICONW*2, ICONH, active == true?COLORICONDC:COLORNOTACTIVE);
-  M5.Lcd.drawBitmap(ACPOSX, ACPOSY, AC_BMP, ICONW*2, ICONH, active == true?COLORICONAC:COLORNOTACTIVE);
+  drawIcon(DCPOSX, DCPOSY, ICONW*2, ICONH, DC_BMP, active == true?COLORICONDC:COLORNOTACTIVE);
+  drawIcon(ACPOSX, ACPOSY, ICONW*2, ICONH, AC_BMP, active == true?COLORICONAC:COLORNOTACTIVE);
 
   M5.Lcd.fillRect(SIGNPOSX, SIGNPOSY, SIGNW, SIGNH, active == true?FONTCOLORVALUE:COLORNOTACTIVE);
 
@@ -354,9 +361,9 @@ void displayValues() {
     displayShow();
     M5.Lcd.setTextColor(FONTCOLORVALUE, BACKGROUND);
     M5.Lcd.setTextDatum(TL_DATUM);
-    M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_WIDTH - 70, 2, TFT_WHITE);  // bargraph bottom init scale
+    M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_HEIGHT - 70, 2, TFT_WHITE);  // bargraph bottom init scale
     memset(valuetmp, 0, meterReplySize-3);
-    //M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
+    //drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
     firstNotify = false;
   } else {
     drawBarGraph();
@@ -411,14 +418,16 @@ void displayValues() {
       valuetmp[REGSCALE] |= FLAGSCALEDIODE;
     else
       valuetmp[REGSCALE] &= ~(FLAGSCALEDIODE);
-    M5.Lcd.drawBitmap(WDIODEPOSX, TOPROWPOSY, DIODE_BMP, ICONW, ICONH, (valuetmp[REGSCALE] & FLAGSCALEDIODE) == FLAGSCALEDIODE?COLORICONDIODE:COLORNOTACTIVE);
+
+    drawIcon(WDIODEPOSX, TOPROWPOSY, ICONW, ICONH, DIODE_BMP, (valuetmp[REGSCALE] & FLAGSCALEDIODE) == FLAGSCALEDIODE?COLORICONDIODE:COLORNOTACTIVE);
 
     if ((valuechar[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ) {
       valuetmp[REGSCALE] |= FLAGSCALEBUZZ;
     } else {
       valuetmp[REGSCALE] &= ~(FLAGSCALEBUZZ);
     }
-    M5.Lcd.drawBitmap(WBUZZPOSX, TOPROWPOSY, BUZZ_BMP, ICONW, ICONH, (valuetmp[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?COLORICONBUZZ:COLORNOTACTIVE);
+
+    drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuetmp[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?COLORICONBUZZ:COLORNOTACTIVE);
 
     if ((valuechar[REGSCALE] & FLAGSCALEMEGA) == FLAGSCALEMEGA) {
       valuetmp[REGSCALE] |= FLAGSCALEMEGA;
@@ -461,7 +470,9 @@ void displayValues() {
       valuetmp[REGMODE] |= FLAGMODEAUTO;
     else
       valuetmp[REGMODE] &= ~(FLAGMODEAUTO);
-    M5.Lcd.drawBitmap(WAUTOPOSX, TOPROWPOSY, AUTO_BMP, ICONW*2, ICONH, (valuetmp[REGMODE] & FLAGMODEAUTO) == FLAGMODEAUTO?COLORICONAUTO:COLORNOTACTIVE);
+
+    drawIcon(WAUTOPOSX, TOPROWPOSY, ICONW*2, ICONH, AUTO_BMP, (valuetmp[REGMODE] & FLAGMODEAUTO) == FLAGMODEAUTO?COLORICONAUTO:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMINMAX] & FLAGMAX) != (valuechar[REGMINMAX] & FLAGMAX)) {    // max
@@ -469,7 +480,9 @@ void displayValues() {
       valuetmp[REGMINMAX] |= FLAGMAX;  
     else
       valuetmp[REGMINMAX] &= ~(FLAGMAX); 
-    M5.Lcd.drawBitmap(WMAXPOSX, TOPROWPOSY, MAX_BMP, ICONW*2, ICONH, (valuetmp[REGMINMAX] & FLAGMAX) == FLAGMAX?COLORICONMAX:COLORNOTACTIVE);
+
+    drawIcon(WMAXPOSX, TOPROWPOSY, ICONW*2, ICONH, MAX_BMP, (valuetmp[REGMINMAX] & FLAGMAX) == FLAGMAX?COLORICONMAX:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMINMAX] & FLAGMIN) != (valuechar[REGMINMAX] & FLAGMIN)) {    // min
@@ -477,7 +490,9 @@ void displayValues() {
       valuetmp[REGMINMAX] |= FLAGMIN;  
     else
       valuetmp[REGMINMAX] &= ~(FLAGMIN);
-    M5.Lcd.drawBitmap(WMINPOSX, TOPROWPOSY, MIN_BMP, ICONW*2, ICONH, (valuetmp[REGMINMAX] & FLAGMIN) == FLAGMIN?COLORICONMIN:COLORNOTACTIVE);
+
+    drawIcon(WMINPOSX, TOPROWPOSY, ICONW*2, ICONH, MIN_BMP, (valuetmp[REGMINMAX] & FLAGMIN) == FLAGMIN?COLORICONMIN:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMODE] & FLAGMODEHOLD) != (valuechar[REGMODE] & FLAGMODEHOLD)) {  // hold
@@ -485,7 +500,9 @@ void displayValues() {
       valuetmp[REGMODE] |= FLAGMODEHOLD;
     else
       valuetmp[REGMODE] &= ~(FLAGMODEHOLD);
-    M5.Lcd.drawBitmap(WHOLDPOSX, TOPROWPOSY, HOLD_BMP, ICONW, ICONH, (valuetmp[REGMODE] & FLAGMODEHOLD) == FLAGMODEHOLD?COLORICONHOLD:COLORNOTACTIVE);
+
+    drawIcon(WHOLDPOSX, TOPROWPOSY, ICONW, ICONH, HOLD_BMP, (valuetmp[REGMODE] & FLAGMODEHOLD) == FLAGMODEHOLD?COLORICONHOLD:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMODE] & FLAGMODEREL) != (valuechar[REGMODE] & FLAGMODEREL)) {  // relative
@@ -493,7 +510,9 @@ void displayValues() {
       valuetmp[REGMODE] |= FLAGMODEREL;
     else
       valuetmp[REGMODE] &= ~(FLAGMODEREL);
-    M5.Lcd.drawBitmap(WRELPOSX, TOPROWPOSY, REL_BMP, ICONW, ICONH, (valuetmp[REGMODE] & FLAGMODEREL) == FLAGMODEREL?COLORICONREL:COLORNOTACTIVE);
+
+    drawIcon(WRELPOSX, TOPROWPOSY, ICONW, ICONH, REL_BMP, (valuetmp[REGMODE] & FLAGMODEREL) == FLAGMODEREL?COLORICONREL:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMODE] & FLAGMODEDC) != (valuechar[REGMODE] & FLAGMODEDC)) {  // dc
@@ -501,7 +520,9 @@ void displayValues() {
       valuetmp[REGMODE] |= FLAGMODEDC;  
     else
       valuetmp[REGMODE] &= ~(FLAGMODEDC);
-    M5.Lcd.drawBitmap(DCPOSX, DCPOSY, DC_BMP, ICONW*2, ICONH, (valuetmp[REGMODE] & FLAGMODEDC) == FLAGMODEDC?COLORICONDC:COLORNOTACTIVE);
+
+    drawIcon(DCPOSX, DCPOSY, ICONW*2, ICONH, DC_BMP, (valuetmp[REGMODE] & FLAGMODEDC) == FLAGMODEDC?COLORICONDC:COLORNOTACTIVE);
+
   }
 
   if ((valuetmp[REGMODE] & FLAGMODEAC) != (valuechar[REGMODE] & FLAGMODEAC)) {  // ac
@@ -509,7 +530,9 @@ void displayValues() {
       valuetmp[REGMODE] |= FLAGMODEAC;   
     else
       valuetmp[REGMODE] &= ~(FLAGMODEAC);
-    M5.Lcd.drawBitmap(ACPOSX, ACPOSY, AC_BMP, ICONW*2, ICONH, (valuetmp[REGMODE] & FLAGMODEAC) == FLAGMODEAC?COLORICONAC:COLORNOTACTIVE);
+
+    drawIcon(ACPOSX, ACPOSY, ICONW*2, ICONH, AC_BMP, (valuetmp[REGMODE] & FLAGMODEAC) == FLAGMODEAC?COLORICONAC:COLORNOTACTIVE);
+
   }
 
   M5.Lcd.setTextSize(2);
@@ -667,13 +690,13 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     } else {
       DEBUG_MSG("I: BLE device not found\n");
     }
-    M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
+    drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
   }
 
 };
 
 void doScan() {
-  M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, COLORICONBLESEARCH);
+  drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, COLORICONBLESEARCH);
   DEBUG_MSG("I: BLE scan start\n");
   startBleScanning = millis();
   BLEScan* pBLEScan = BLEDevice::getScan();
@@ -695,6 +718,11 @@ void setup() {
   WiFi.mode(WIFI_OFF);
 
   M5.begin();
+  if(digitalRead(BUTTON_A_PIN) == 0) {
+    Serial.println("Will Load menu binary");
+    updateFromFS(SD);
+    ESP.restart();
+  }
   M5.Lcd.fillScreen(BACKGROUND);
 
   displayShow();
@@ -721,7 +749,7 @@ void loop() {
       if (firstNotify == false)
         displayShow();
       else
-        M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
+        drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
       doScan();
       return; 
     }
@@ -746,7 +774,8 @@ void loop() {
       }
       displayValues();
     } else
-      M5.Lcd.drawBitmap(WBLEPOSX, TOPROWPOSY, BLE_BMP, ICONW, ICONH, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE); 
+
+      drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
 
     if (deviceBleWriteAvailable == true) {
 
