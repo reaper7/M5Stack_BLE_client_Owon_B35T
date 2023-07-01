@@ -412,6 +412,7 @@ void parseMeterPlus() {
     measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
     valuechar[REGPLUSMINUS]=FLAGMINUS;                                          // set flag minus
   }
+  DEBUG_MSG(" B35tPlus measurement: %f\n", measurement);
   valuechar[REGDIG1] = 0x30 + (int(measurement / 1000) % 10);
   valuechar[REGDIG2] = 0x30 + (int(measurement / 100) % 10);
   valuechar[REGDIG3] = 0x30 + (int(measurement / 10) % 10);
