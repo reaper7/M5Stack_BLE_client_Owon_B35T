@@ -34,6 +34,7 @@
 #endif
 
 //#define BATMETERI2C
+//#define FALSEMETER
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 const char* OWONNAME = "BDM";                                                   // OWON device name 
@@ -363,11 +364,6 @@ void displayShow(bool active = false) {
     firstNotify = true;
 }
 //------------------------------------------------------------------------------
-//Byte swap unsigned short
-uint16_t swap_uint16(uint16_t val) {
-  return (val << 8) | (val >> 8 );
-}
-//------------------------------------------------------------------------------
 void parseMeterPlus() {
   //your code for parse meterPlus from rawvalbuf to b35t format and fill valuechar buffer
   //rawvalbuf e.x. from 19 F0 04 00 49 04 to F0 19 00 04 04 49
@@ -382,41 +378,75 @@ void parseMeterPlus() {
   valuechar[12]=0x0d;
   valuechar[13]=0x0a;
 
-  // swap 0 and 1 byte from rawvalbuf
-  //temp16 = *((uint16_t *)(rawvalbuf));
-  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf)));
+  // 0 and 1 byte from rawvalbuf
+  temp16 = *((uint16_t *)(rawvalbuf));
+
+  DEBUG_MSG("D: B35tPlus PAIR1: %04X\n", temp16);
+
   // parse
   function = (temp16 >> 6) & 0x0f;
   scale = (temp16 >> 3) & 0x07;
   decimal = temp16 & 0x07;
+
   // decode and set appropriate bits in valuechar
+  DEBUG_MSG(" - FUNCT: %02d\n", function);
+  DEBUG_MSG(" - SCALE: %02d\n", scale);
+  DEBUG_MSG(" - DECIM: %02d\n", decimal);
+
+  //decinal point
+  switch (decimal) {
+    case B000:
+      valuechar[REGPOINT]=B00110000;
+      break;
+    case B001:
+      valuechar[REGPOINT]=B00110001;
+      break;
+    case B010:
+      valuechar[REGPOINT]=B00110010;
+      break;
+    case B011:
+      valuechar[REGPOINT]=B00110100;
+      break;
+    default:
+      break;
+  }
 
 
-  // swap 2 and 3 byte from rawvalbuf
-  //temp16 = *((uint16_t *)(rawvalbuf));
-  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf+2)));
+
+  // 2 and 3 byte from rawvalbuf
+  temp16 = *((uint16_t *)(rawvalbuf+2));
+
+  DEBUG_MSG("D: B35tPlus PAIR2: %04X\n", temp16);
+
   // parse
 
   // decode and set appropriate bits in valuechar
+  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));  // AUTORANGE
 
 
 
-  // swap 4 and 5 byte from rawvalbuf
-  //temp16 = *((uint16_t *)(rawvalbuf));
-  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf+4)));
+  // 4 and 5 byte from rawvalbuf
+  temp16 = *((uint16_t *)(rawvalbuf+4));
+
+  DEBUG_MSG("D: B35tPlus PAIR3: %04X\n", temp16);
+
   // parse
   if (temp16 < 0x7fff) {
     measurement = (float)temp16 / pow(10.0, decimal);
-    valuechar[REGPLUSMINUS]=FLAGPLUS;                                           // set flag plus
+    valuechar[REGPLUSMINUS]=FLAGPLUS;                                          // set flag plus 
   } else {
     measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
     valuechar[REGPLUSMINUS]=FLAGMINUS;                                          // set flag minus
+    temp16 = temp16 & 0x7fff;
   }
-  DEBUG_MSG(" B35tPlus measurement: %f\n", measurement);
-  valuechar[REGDIG1] = 0x30 + (int(measurement / 1000) % 10);
-  valuechar[REGDIG2] = 0x30 + (int(measurement / 100) % 10);
-  valuechar[REGDIG3] = 0x30 + (int(measurement / 10) % 10);
-  valuechar[REGDIG4] = 0x30 + (int(measurement / 1) % 10);
+
+  valuechar[REGDIG1] = 0x30 + (int(temp16 / 1000) % 10);
+  valuechar[REGDIG2] = 0x30 + (int(temp16 / 100) % 10);
+  valuechar[REGDIG3] = 0x30 + (int(temp16 / 10) % 10);
+  valuechar[REGDIG4] = 0x30 + (int(temp16 / 1) % 10);
+
+  DEBUG_MSG(" - VALUE : %09.4f\n", measurement);
+  DEBUG_MSG(" - DIGITS: %c %c %c %c\n", valuechar[REGDIG1], valuechar[REGDIG2], valuechar[REGDIG3], valuechar[REGDIG4]);
 
 }
 //------------------------------------------------------------------------------
@@ -669,42 +699,78 @@ void displayValues() {
 }
 
 static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
-
+#ifndef FALSEMETER
   if (isNotify == true && length <= rawBufferSize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
 
-#ifdef MYDEBUG
-    DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
-#endif
+    //DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
+    DEBUG_MSG("I: Notify callback len=%d (UUID OK)\n", length);
 
     if (memcmp(rawvalbuf, pData, length) != 0) {                                // if new data <> old data
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
         memcpy(rawvalbuf, pData, length);
 
 #ifdef MYDEBUG
+        DEBUG_MSG("D: RAW BUFF: [ ");
         for (uint8_t i = 0; i < length; i++) {
           DEBUG_MSG("%02X ", rawvalbuf[i]);
         }
-        DEBUG_MSG("\n");
+        DEBUG_MSG("]\n");
 #endif
 
         if ((length == replySizePlus) && (rawvalbuf[1] >= 0xf0)) {              // if meter PLUS detected
           if (meterIsPlus == false) {
             meterIsPlus = true;
-            newBleData = true;
+            DEBUG_MSG("D: Type B35TPlus\n");
           }
-        } else if ((length == replySizeNorm) && (rawvalbuf[12] >= 0x0d) && (rawvalbuf[13] >= 0x0a)) {
+          newBleData = true;
+        } else if ((length == replySizeNorm) && (rawvalbuf[12] == 0x0d) && (rawvalbuf[13] == 0x0a)) {
           if (meterIsPlus == true) {
             meterIsPlus = false;
-            newBleData = true;
+            DEBUG_MSG("D: Type B35T\n");
           }
+          newBleData = true;
         }
 
       }
     }
     lastBleNotify = millis();
   }
+#endif
+}
+
+#ifdef FALSEMETER
+static void notifyTest() {
+  uint8_t _pData[replySizePlus];
+  _pData[0] = 0x22;
+  _pData[1] = 0xf0;
+  _pData[2] = 0x04;
+  _pData[3] = 0x00;
+  _pData[4] = 0xe7;
+  _pData[5] = 0x03;
+
+
+    if (memcmp(rawvalbuf, _pData, replySizePlus) != 0) {                                // if new data <> old data
+      if (newBleData == false) {                                                // and if old data are displayed then copy new data
+        memcpy(rawvalbuf, _pData, replySizePlus);
+
+#ifdef MYDEBUG
+        DEBUG_MSG("D: RAW BUFF: [ ");
+        for (uint8_t i = 0; i < replySizePlus; i++) {
+          DEBUG_MSG("%02X ", rawvalbuf[i]);
+        }
+        DEBUG_MSG("]\n");
+#endif
+
+          if (meterIsPlus == false) {
+            meterIsPlus = true;
+          }
+      }
+      newBleData = true;
+    }
+    lastBleNotify = millis();
 
 }
+#endif
 
 class MyClientCallbacks: public BLEClientCallbacks {
   void onConnect(BLEClient *pClient) {
@@ -914,6 +980,13 @@ void loop() {
   if (millis() > batNextReadTime) {
     batCheckDraw();
     batNextReadTime = millis() + batReadEvery;
+  }
+#endif
+
+#ifdef FALSEMETER
+  if (millis() > batNextReadTime) {
+    notifyTest();
+    batNextReadTime = millis() + 2000;
   }
 #endif
 
