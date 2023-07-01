@@ -26,12 +26,14 @@
 
 #include "meter_graphics.h"
 
-//#define MYDEBUG
+#define MYDEBUG
 #ifdef MYDEBUG
 #define DEBUG_MSG(...) Serial.printf( __VA_ARGS__ )
 #else
 #define DEBUG_MSG(...)
 #endif
+
+//#define BATMETERI2C
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 const char* OWONNAME = "BDM";                                                   // OWON device name 
@@ -53,6 +55,14 @@ const uint16_t scanTime = 10;                                                   
 
 const uint8_t meterReplySize = 14;                                              // number of bytes in meter reply
 char valuechar[meterReplySize];                                                 // meter reply buffer
+
+const uint8_t rawBufferSize = 14;                                               // number of bytes for reading meter
+char rawvalbuf[rawBufferSize];                                                  // meter reply raw buffer
+
+const uint8_t replySizeNorm = 14;                                               // notify size for b35t
+const uint8_t replySizePlus = 6;                                                // notify size for b35tPLUS
+
+static boolean meterIsPlus = false;                                             // flag for meter b35tPLUS
 
 static boolean firstNotify = true;                                              // flag first notify after start or reconnect
 
@@ -353,9 +363,71 @@ void displayShow(bool active = false) {
     firstNotify = true;
 }
 //------------------------------------------------------------------------------
+//Byte swap unsigned short
+uint16_t swap_uint16(uint16_t val) {
+  return (val << 8) | (val >> 8 );
+}
+//------------------------------------------------------------------------------
+void parseMeterPlus() {
+  //your code for parse meterPlus from rawvalbuf to b35t format and fill valuechar buffer
+  //rawvalbuf e.x. from 19 F0 04 00 49 04 to F0 19 00 04 04 49
+
+  uint16_t temp16 = 0;
+  uint8_t function, scale, decimal;
+  float measurement;
+
+  //prepare valuechar buff
+  memset(valuechar, 0, meterReplySize);                                         // clean valuechar buffer
+  valuechar[5]=0x20;
+  valuechar[12]=0x0d;
+  valuechar[13]=0x0a;
+
+  // swap 0 and 1 byte from rawvalbuf
+  //temp16 = *((uint16_t *)(rawvalbuf));
+  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf)));
+  // parse
+  function = (temp16 >> 6) & 0x0f;
+  scale = (temp16 >> 3) & 0x07;
+  decimal = temp16 & 0x07;
+  // decode and set appropriate bits in valuechar
+
+
+  // swap 2 and 3 byte from rawvalbuf
+  //temp16 = *((uint16_t *)(rawvalbuf));
+  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf+2)));
+  // parse
+
+  // decode and set appropriate bits in valuechar
+
+
+
+  // swap 4 and 5 byte from rawvalbuf
+  //temp16 = *((uint16_t *)(rawvalbuf));
+  temp16 = swap_uint16(*((uint16_t *)(rawvalbuf+4)));
+  // parse
+  if (temp16 < 0x7fff) {
+    measurement = (float)temp16 / pow(10.0, decimal);
+    valuechar[REGPLUSMINUS]=FLAGPLUS;                                           // set flag plus
+  } else {
+    measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
+    valuechar[REGPLUSMINUS]=FLAGMINUS;                                          // set flag minus
+  }
+  valuechar[REGDIG1] = 0x30 + (int(measurement / 1000) % 10);
+  valuechar[REGDIG2] = 0x30 + (int(measurement / 100) % 10);
+  valuechar[REGDIG3] = 0x30 + (int(measurement / 10) % 10);
+  valuechar[REGDIG4] = 0x30 + (int(measurement / 1) % 10);
+
+}
+//------------------------------------------------------------------------------
 void displayValues() {
 
   static char valuetmp[meterReplySize-3];                                       // local copy of data
+
+  if (meterIsPlus) {                                                            // if meter is b35tPLUS
+    parseMeterPlus();
+  } else {                                                                      // if meter is b35t
+    memcpy(valuechar, rawvalbuf, meterReplySize);                               // simply copy rawvalbuf to valuechar
+  }
 
   if (firstNotify == true) {
     displayShow();
@@ -597,20 +669,35 @@ void displayValues() {
 
 static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
 
-  if (isNotify == true && length == meterReplySize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
+  if (isNotify == true && length <= rawBufferSize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
 
-    //DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
+#ifdef MYDEBUG
+    DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
+#endif
 
-    if (memcmp(valuechar, pData, meterReplySize) != 0) {                        // if new data <> old data
+    if (memcmp(rawvalbuf, pData, length) != 0) {                                // if new data <> old data
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
-        memcpy(valuechar, pData, meterReplySize);
-/*
-        for (uint8_t i = 0; i < meterReplySize; i++) {
-          DEBUG_MSG("%02X ", valuechar[i]);
+        memcpy(rawvalbuf, pData, length);
+
+#ifdef MYDEBUG
+        for (uint8_t i = 0; i < length; i++) {
+          DEBUG_MSG("%02X ", rawvalbuf[i]);
         }
         DEBUG_MSG("\n");
-*/
-        newBleData = true;
+#endif
+
+        if ((length == replySizePlus) && (rawvalbuf[1] >= 0xf0)) {              // if meter PLUS detected
+          if (meterIsPlus == false) {
+            meterIsPlus = true;
+            newBleData = true;
+          }
+        } else if ((length == replySizeNorm) && (rawvalbuf[12] >= 0x0d) && (rawvalbuf[13] >= 0x0a)) {
+          if (meterIsPlus == true) {
+            meterIsPlus = false;
+            newBleData = true;
+          }
+        }
+
       }
     }
     lastBleNotify = millis();
@@ -725,9 +812,14 @@ void setup() {
   }
   M5.Lcd.fillScreen(BACKGROUND);
 
+  memset(rawvalbuf, 0, rawBufferSize);                                          // clean buffer
+  memset(valuechar, 0, meterReplySize);                                         // clean buffer
+
   displayShow();
 
+#ifdef BATMETERI2C
   batCheckDraw();
+#endif
 
   BLEDevice::init("");
 }
@@ -817,9 +909,11 @@ void loop() {
 
   }
 
+#ifdef BATMETERI2C
   if (millis() > batNextReadTime) {
     batCheckDraw();
     batNextReadTime = millis() + batReadEvery;
   }
+#endif
 
 }
