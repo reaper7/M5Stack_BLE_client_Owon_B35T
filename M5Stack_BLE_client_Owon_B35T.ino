@@ -252,8 +252,10 @@ void batCheckDraw() {
   if (meterIsPlus) {                                                            // if meter is b35tPLUS
     if (meterPlusLowBat)                                                        // if BAT LOW
       soc = 1;
+    drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONBAT:COLORICONACCU);
+  } else {
+    drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONACCU:COLORNOTACTIVE);
   }
-  drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONBAT:COLORICONACCU);
 #endif
 /*
   //based on voltage
