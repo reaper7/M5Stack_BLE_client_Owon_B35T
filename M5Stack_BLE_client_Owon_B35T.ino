@@ -78,6 +78,7 @@ const uint16_t btnLongPressTime = 1800;                                         
 const uint8_t owonBtnArraySize = 0x02;                                          // buffer size for write to meter
 uint8_t owonBtnArray[owonBtnArraySize] = {btnNumber, btnShortPress};            // output buffer for write to meter
 
+#ifdef BATMETERI2C
 // bat meter MAX17043 1-Cell Fuel Gauge
 static uint16_t batReadEvery = 10000;                                           // read MAX17043 every 10000 sec
 static unsigned long batNextReadTime = 0;                                       // time for next read MAX17043 in ms
@@ -85,6 +86,7 @@ const uint8_t MAX17043ADDR=0x36;                                                
 const uint8_t MAX17043CMDADDR=0xFE;                                             // MAX17043 command register addr
 const uint8_t MAX17043SOCADDR=0x04;                                             // MAX17043 soc data addr
 const uint8_t MAX17043VCELLADDR=0x02;                                           // MAX17043 voltage data addr
+#endif
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 /*
@@ -230,28 +232,38 @@ void batMeterInit() {                                                           
 */
 //------------------------------------------------------------------------------
 void batCheckDraw() {
+  //based on soc
   double soc = 0;
+#ifdef BATMETERI2C
   DEBUG_MSG("I: BAT check...");
   Wire.beginTransmission(MAX17043ADDR);                                         // get SoC
   Wire.write(MAX17043SOCADDR);
   Wire.endTransmission(false);
   Wire.requestFrom(MAX17043ADDR, (uint8_t)2);
   soc = Wire.read() + (double) Wire.read() / 256;
-  //based on soc
+  DEBUG_MSG(" SoC: %6.2f%%\n", soc);
   M5.Lcd.fillRect(WACCUPOSX + 2, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>75?COLORICONACCU:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 5, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>50?COLORICONACCU:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 8, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>25?COLORICONACCU:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 11, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, soc>5?COLORICONACCU:COLORNOTACTIVE);
   drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONACCU:COLORNOTACTIVE);
-  DEBUG_MSG(" SoC: %6.2f%%", soc);
+#else
+  if (meterIsPlus) {                                                            // if meter is b35tPLUS
+    if (*((uint16_t *)(rawvalbuf+2)) & 0x08)                                    // if BAT LOW
+      soc = 1;
+  }
+  drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONBAT:COLORICONACCU);
+#endif
 /*
+  //based on voltage
   double volt = 0;
+  DEBUG_MSG("I: BAT check...");
   Wire.beginTransmission(MAX17043ADDR);                                         // get voltage
   Wire.write(MAX17043VCELLADDR);
   Wire.endTransmission(false);
   Wire.requestFrom(MAX17043ADDR, (uint8_t)2);
   volt = ( (Wire.read() << 4) + (Wire.read() >> 4) ) * 0.00125;
-  //based on voltage
+  DEBUG_MSG(" Volt: %4.2fV\n", volt);
   // >3.3 = 1
   // >3.5 = 2
   // >3.7 = 3
@@ -261,9 +273,7 @@ void batCheckDraw() {
   M5.Lcd.fillRect(WACCUPOSX + 8, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, volt>3.5?TFT_GREEN:COLORNOTACTIVE);
   M5.Lcd.fillRect(WACCUPOSX + 11, TOPROWPOSY + 5, ACCUSCALW, ACCUSCALH, volt>3.3?TFT_GREEN:COLORNOTACTIVE);
   drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, volt>0?COLORICONACCU:COLORNOTACTIVE);
-  DEBUG_MSG(" Volt: %4.2fV", volt);
 */
-  DEBUG_MSG("\n");
 }
 //------------------------------------------------------------------------------
 void drawButtons() {
@@ -366,7 +376,7 @@ void displayShow(bool active = false) {
 //------------------------------------------------------------------------------
 void parseMeterPlus() {
   //your code for parse meterPlus from rawvalbuf to b35t format and fill valuechar buffer
-  //rawvalbuf e.x. from 19 F0 04 00 49 04 to F0 19 00 04 04 49
+  //rawvalbuf e.x. 19 F0 04 00 49 04
 
   uint16_t temp16 = 0;
   uint8_t function, scale, decimal;
@@ -377,6 +387,9 @@ void parseMeterPlus() {
   valuechar[5]=0x20;
   valuechar[12]=0x0d;
   valuechar[13]=0x0a;
+
+  //------------------------------------------------------------------
+  //------------------------------------------------------------------
 
   // 0 and 1 byte from rawvalbuf
   temp16 = *((uint16_t *)(rawvalbuf));
@@ -396,34 +409,106 @@ void parseMeterPlus() {
   //decinal point
   switch (decimal) {
     case B000:
-      valuechar[REGPOINT]=B00110000;
+      valuechar[REGPOINT]=FLAGPOINT0;
       break;
     case B001:
-      valuechar[REGPOINT]=B00110001;
+      valuechar[REGPOINT]=FLAGPOINT1;
       break;
     case B010:
-      valuechar[REGPOINT]=B00110010;
+      valuechar[REGPOINT]=FLAGPOINT2;
       break;
     case B011:
-      valuechar[REGPOINT]=B00110100;
+      valuechar[REGPOINT]=FLAGPOINT3;
       break;
     default:
       break;
   }
 
+  //function
+  switch (function) {
+    case B0000:                                         //DCV
+      bitSet(valuechar[REGUNIT], 7);                    //V
+      bitSet(valuechar[REGMODE], 4);                    //DC
+      break;
+    case B0001:                                         //ACV
+      bitSet(valuechar[REGUNIT], 7);                    //V
+      bitSet(valuechar[REGMODE], 3);                    //AC
+      break;
+    case B0010:                                         //DCA
+      bitSet(valuechar[REGUNIT], 6);                    //A
+      bitSet(valuechar[REGMODE], 4);                    //DC
+      break;
+    case B0011:                                         //ACA
+      bitSet(valuechar[REGUNIT], 6);                    //A
+      bitSet(valuechar[REGMODE], 3);                    //AC
+      break;
+    case B0100:                                         //Ohm
+      bitSet(valuechar[REGUNIT], 5);                    //Ohm
+      break;
+    case B0101:                                         //Cap
+      bitSet(valuechar[REGUNIT], 2);                    //Cap
+      break;
+    case B0110:                                         //Hz
+      bitSet(valuechar[REGUNIT], 3);                    //Hz
+      break;
+    case B0111:                                         //Duty
+      bitSet(valuechar[REGSCALE], 1);                   //Duty
+      break;
+    case B1000:                                         //TempC
+      bitSet(valuechar[REGUNIT], 1);                    //TempC
+      break;
+    case B1001:                                         //TempF
+      bitSet(valuechar[REGUNIT], 0);                    //TempF
+      break;
+    case B1010:                                         //Diode
+      bitSet(valuechar[REGSCALE], 2);                   //Diode
+      break;
+    case B1011:                                         //Continuity
+      bitSet(valuechar[REGSCALE], 3);                   //Continuity
+      break;
+    case B1100:                                         //hFE
+      bitSet(valuechar[REGUNIT], 4);                    //hFE
+      break;
+    default:
+      break;
+  }
 
+  //scale
+  switch (scale) {
+    case B010:                                          //micro
+      bitSet(valuechar[REGSCALE], 7);                   //micro
+      break;
+    case B011:                                          //milli
+      bitSet(valuechar[REGSCALE], 6);                   //milli
+      break;
+    case B101:                                          //kilo
+      bitSet(valuechar[REGSCALE], 5);                   //kilo
+      break;
+    case B110:                                          //mega
+      bitSet(valuechar[REGSCALE], 4);                   //mega
+      break;
+    default:
+      break;
+  }
+
+  //------------------------------------------------------------------
+  //------------------------------------------------------------------
 
   // 2 and 3 byte from rawvalbuf
   temp16 = *((uint16_t *)(rawvalbuf+2));
 
   DEBUG_MSG("D: B35tPlus PAIR2: %04X\n", temp16);
 
-  // parse
-
   // decode and set appropriate bits in valuechar
-  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));  // AUTORANGE
+  bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));    // HOLD
+  bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));    // DELTA
+  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));    // AUTORANGE
+  //bitRead(temp16, 3);                                   // LOW BAT
+  bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));  // MIN
+  bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));  // MAX
 
-
+  //------------------------------------------------------------------
+  //------------------------------------------------------------------
 
   // 4 and 5 byte from rawvalbuf
   temp16 = *((uint16_t *)(rawvalbuf+4));
@@ -884,9 +969,7 @@ void setup() {
 
   displayShow();
 
-#ifdef BATMETERI2C
   batCheckDraw();
-#endif
 
   BLEDevice::init("");
 }
