@@ -35,6 +35,7 @@
 
 //#define BATMETERI2C
 //#define FALSEMETER
+
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 const char* OWONNAME = "BDM";                                                   // OWON device name 
@@ -65,6 +66,7 @@ const uint8_t replySizePlus = 6;                                                
 
 static boolean meterIsPlus = false;                                             // flag for meter b35tPLUS
 static boolean meterPlusLowBat = false;                                         // meter b35tPLUS Low Bat
+static boolean meterPlusLowBatLast = !meterPlusLowBat;
 
 static boolean firstNotify = true;                                              // flag first notify after start or reconnect
 
@@ -391,8 +393,8 @@ void parseMeterPlus() {
   valuechar[12]=0x0d;
   valuechar[13]=0x0a;
 
-  //------------------------------------------------------------------
-  //------------------------------------------------------------------
+  //----------------------------------------------------------------------------
+  //----------------------------------------------------------------------------
 
   // 0 and 1 byte from rawvalbuf
   temp16 = *((uint16_t *)(rawvalbuf));
@@ -429,48 +431,48 @@ void parseMeterPlus() {
 
   //function
   switch (function) {
-    case B0000:                                         //DCV
-      bitSet(valuechar[REGUNIT], 7);                    //V
-      bitSet(valuechar[REGMODE], 4);                    //DC
+    case B0000:                                         						//DCV
+      bitSet(valuechar[REGUNIT], 7);                    						//V
+      bitSet(valuechar[REGMODE], 4);                    						//DC
       break;
-    case B0001:                                         //ACV
-      bitSet(valuechar[REGUNIT], 7);                    //V
-      bitSet(valuechar[REGMODE], 3);                    //AC
+    case B0001:                                         						//ACV
+      bitSet(valuechar[REGUNIT], 7);                    						//V
+      bitSet(valuechar[REGMODE], 3);                    						//AC
       break;
-    case B0010:                                         //DCA
-      bitSet(valuechar[REGUNIT], 6);                    //A
-      bitSet(valuechar[REGMODE], 4);                    //DC
+    case B0010:                                         						//DCA
+      bitSet(valuechar[REGUNIT], 6);                   	 						//A
+      bitSet(valuechar[REGMODE], 4);                    						//DC
       break;
-    case B0011:                                         //ACA
-      bitSet(valuechar[REGUNIT], 6);                    //A
-      bitSet(valuechar[REGMODE], 3);                    //AC
+    case B0011:                                         						//ACA
+      bitSet(valuechar[REGUNIT], 6);                    						//A
+      bitSet(valuechar[REGMODE], 3);                    						//AC
       break;
-    case B0100:                                         //Ohm
-      bitSet(valuechar[REGUNIT], 5);                    //Ohm
+    case B0100:                                         						//Ohm
+      bitSet(valuechar[REGUNIT], 5);                    						//Ohm
       break;
-    case B0101:                                         //Cap
-      bitSet(valuechar[REGUNIT], 2);                    //Cap
+    case B0101:                                         						//Cap
+      bitSet(valuechar[REGUNIT], 2);                    						//Cap
       break;
-    case B0110:                                         //Hz
-      bitSet(valuechar[REGUNIT], 3);                    //Hz
+    case B0110:                                         						//Hz
+      bitSet(valuechar[REGUNIT], 3);                    						//Hz
       break;
-    case B0111:                                         //Duty
-      bitSet(valuechar[REGSCALE], 1);                   //Duty
+    case B0111:                                         						//Duty
+      bitSet(valuechar[REGSCALE], 1);                   						//Duty
       break;
-    case B1000:                                         //TempC
-      bitSet(valuechar[REGUNIT], 1);                    //TempC
+    case B1000:                                         						//TempC
+      bitSet(valuechar[REGUNIT], 1);                    						//TempC
       break;
-    case B1001:                                         //TempF
-      bitSet(valuechar[REGUNIT], 0);                    //TempF
+    case B1001:                                         						//TempF
+      bitSet(valuechar[REGUNIT], 0);                   	 						//TempF
       break;
-    case B1010:                                         //Diode
-      bitSet(valuechar[REGSCALE], 2);                   //Diode
+    case B1010:                                         						//Diode
+      bitSet(valuechar[REGSCALE], 2);                   						//Diode
       break;
-    case B1011:                                         //Continuity
-      bitSet(valuechar[REGSCALE], 3);                   //Continuity
+    case B1011:                                         						//Continuity
+      bitSet(valuechar[REGSCALE], 3);                   						//Continuity
       break;
-    case B1100:                                         //hFE
-      bitSet(valuechar[REGUNIT], 4);                    //hFE
+    case B1100:                                         						//hFE
+      bitSet(valuechar[REGUNIT], 4);                    						//hFE
       break;
     default:
       break;
@@ -478,17 +480,17 @@ void parseMeterPlus() {
 
   //scale
   switch (scale) {
-    case B010:                                          //micro
-      bitSet(valuechar[REGSCALE], 7);                   //micro
+    case B010:                                          						//micro
+      bitSet(valuechar[REGSCALE], 7);                   						//micro
       break;
-    case B011:                                          //milli
-      bitSet(valuechar[REGSCALE], 6);                   //milli
+    case B011:                                          						//milli
+      bitSet(valuechar[REGSCALE], 6);                   						//milli
       break;
-    case B101:                                          //kilo
-      bitSet(valuechar[REGSCALE], 5);                   //kilo
+    case B101:                                          						//kilo
+      bitSet(valuechar[REGSCALE], 5);                   						//kilo
       break;
-    case B110:                                          //mega
-      bitSet(valuechar[REGSCALE], 4);                   //mega
+    case B110:                                          						//mega
+      bitSet(valuechar[REGSCALE], 4);                   						//mega
       break;
     default:
       break;
@@ -503,21 +505,19 @@ void parseMeterPlus() {
   DEBUG_MSG("D: B35tPlus PAIR2: %04X\n", temp16);
 
   // decode and set appropriate bits in valuechar
-  bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));    // HOLD
-  bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));    // DELTA
-  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));    // AUTORANGE
-  bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));  // MIN
-  bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));  // MAX
-  if (bitRead(temp16, 3) == 1) {                          // LOW BAT
-    if (!meterPlusLowBat) {
-      meterPlusLowBat = true;
-      batCheckDraw();
-    }
-  } else {
-    if (meterPlusLowBat) {
-      meterPlusLowBat = false;
-      batCheckDraw();
-    }
+  bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));    						// HOLD
+  bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));    						// DELTA
+  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));    						// AUTORANGE
+  bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));  						// MIN
+  bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));  						// MAX
+  if (bitRead(temp16, 3) == 1)                             						// LOW BAT
+    meterPlusLowBat = true;
+  else
+    meterPlusLowBat = false;
+
+  if (meterPlusLowBat != meterPlusLowBatLast) {
+    meterPlusLowBatLast = meterPlusLowBat;
+    batCheckDraw();
   }
 
   //------------------------------------------------------------------
@@ -531,7 +531,7 @@ void parseMeterPlus() {
   // parse
   if (temp16 < 0x7fff) {
     measurement = (float)temp16 / pow(10.0, decimal);
-    valuechar[REGPLUSMINUS]=FLAGPLUS;                                          // set flag plus 
+    valuechar[REGPLUSMINUS]=FLAGPLUS;                                          	// set flag plus 
   } else {
     measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
     valuechar[REGPLUSMINUS]=FLAGMINUS;                                          // set flag minus
@@ -801,7 +801,7 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
   if (isNotify == true && length <= rawBufferSize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
 
     //DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
-    DEBUG_MSG("I: Notify callback len=%d (UUID OK)\n", length);
+    DEBUG_MSG("D: Notify callback len=%d (UUID OK)\n", length);
 
     if (memcmp(rawvalbuf, pData, length) != 0) {                                // if new data <> old data
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
@@ -843,11 +843,11 @@ static void notifyTest() {
   _pData[1] = 0xf0;
   _pData[2] = 0x04;
   _pData[3] = 0x00;
-  _pData[4] = 0xe7;
+  _pData[4] = random(0xe5, 0xea);
   _pData[5] = 0x03;
 
 
-    if (memcmp(rawvalbuf, _pData, replySizePlus) != 0) {                                // if new data <> old data
+    if (memcmp(rawvalbuf, _pData, replySizePlus) != 0) {                        // if new data <> old data
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
         memcpy(rawvalbuf, _pData, replySizePlus);
 
@@ -1001,9 +1001,13 @@ void loop() {
     }
 
     if (startBleScanning == 0) {
-      if (firstNotify == false)
+      if (firstNotify == false) {
         displayShow();
-      else
+        if (meterIsPlus) {
+          drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, COLORNOTACTIVE);
+          meterPlusLowBatLast = !meterPlusLowBat;
+        }
+      } else
         drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
       doScan();
       return; 
@@ -1080,9 +1084,10 @@ void loop() {
 #endif
 
 #ifdef FALSEMETER
-  if (millis() > batNextReadTime) {
+  static unsigned long nextMeasuring = 0;
+  if (millis() > nextMeasuring) {
     notifyTest();
-    batNextReadTime = millis() + 2000;
+    nextMeasuring = millis() + random(450, 1800);
   }
 #endif
 
