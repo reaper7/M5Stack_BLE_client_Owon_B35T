@@ -64,6 +64,7 @@ const uint8_t replySizeNorm = 14;                                               
 const uint8_t replySizePlus = 6;                                                // notify size for b35tPLUS
 
 static boolean meterIsPlus = false;                                             // flag for meter b35tPLUS
+static boolean meterPlusLowBat = false;                                         // meter b35tPLUS Low Bat
 
 static boolean firstNotify = true;                                              // flag first notify after start or reconnect
 
@@ -249,7 +250,7 @@ void batCheckDraw() {
   drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONACCU:COLORNOTACTIVE);
 #else
   if (meterIsPlus) {                                                            // if meter is b35tPLUS
-    if (*((uint16_t *)(rawvalbuf+2)) & 0x08)                                    // if BAT LOW
+    if (meterPlusLowBat)                                                        // if BAT LOW
       soc = 1;
   }
   drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, soc>0?COLORICONBAT:COLORICONACCU);
@@ -503,9 +504,19 @@ void parseMeterPlus() {
   bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));    // HOLD
   bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));    // DELTA
   bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));    // AUTORANGE
-  //bitRead(temp16, 3);                                   // LOW BAT
   bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));  // MIN
   bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));  // MAX
+  if (bitRead(temp16, 3) == 1) {                          // LOW BAT
+    if (!meterPlusLowBat) {
+      meterPlusLowBat = true;
+      batCheckDraw();
+    }
+  } else {
+    if (meterPlusLowBat) {
+      meterPlusLowBat = false;
+      batCheckDraw();
+    }
+  }
 
   //------------------------------------------------------------------
   //------------------------------------------------------------------
