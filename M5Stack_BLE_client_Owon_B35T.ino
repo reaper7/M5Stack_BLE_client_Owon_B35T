@@ -417,13 +417,13 @@ void parseMeterPlus() {
       valuechar[REGPOINT]=FLAGPOINT0;
       break;
     case B001:
-      valuechar[REGPOINT]=FLAGPOINT1;
+      valuechar[REGPOINT]=FLAGPOINT3;
       break;
     case B010:
       valuechar[REGPOINT]=FLAGPOINT2;
       break;
     case B011:
-      valuechar[REGPOINT]=FLAGPOINT3;
+      valuechar[REGPOINT]=FLAGPOINT1;
       break;
     default:
       break;
