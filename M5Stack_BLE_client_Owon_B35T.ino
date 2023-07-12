@@ -68,6 +68,8 @@ static boolean meterIsPlus = false;                                             
 static boolean meterPlusLowBat = false;                                         // meter b35tPLUS Low Bat
 static boolean meterPlusLowBatLast = !meterPlusLowBat;
 
+static boolean buzzOn = false;                                                  // buzzer on
+
 static boolean firstNotify = true;                                              // flag first notify after start or reconnect
 
 //write to OWON
@@ -214,6 +216,21 @@ const uint8_t MAX17043VCELLADDR=0x02;                                           
 /*
 9:  CR + LF
 */
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+void buzzCheck() {
+  if (buzzOn == true) {
+    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && ((valuechar[REGDIG1] > 0x30) || (valuechar[REGDIG2] > 0x30) || (valuechar[REGDIG3] >= 0x33)))) {
+      buzzOn = false;
+      DEBUG_MSG("D: Buzz Off\n");
+    }
+  } else {
+    if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (valuechar[REGDIG1] == 0x30) && (valuechar[REGDIG2] == 0x30) && (valuechar[REGDIG3] >= 0x30) && (valuechar[REGDIG3] < 0x33)) {
+      buzzOn = true;
+      DEBUG_MSG("D: Buzz On\n");
+    }  
+  }
+}
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 void drawIcon(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, const uint8_t* data, uint16_t color) {
@@ -431,48 +448,48 @@ void parseMeterPlus() {
 
   //function
   switch (function) {
-    case B0000:                                         						//DCV
-      bitSet(valuechar[REGUNIT], 7);                    						//V
-      bitSet(valuechar[REGMODE], 4);                    						//DC
+    case B0000:                                                     //DCV
+      bitSet(valuechar[REGUNIT], 7);                                //V
+      bitSet(valuechar[REGMODE], 4);                                //DC
       break;
-    case B0001:                                         						//ACV
-      bitSet(valuechar[REGUNIT], 7);                    						//V
-      bitSet(valuechar[REGMODE], 3);                    						//AC
+    case B0001:                                                     //ACV
+      bitSet(valuechar[REGUNIT], 7);                                //V
+      bitSet(valuechar[REGMODE], 3);                                //AC
       break;
-    case B0010:                                         						//DCA
-      bitSet(valuechar[REGUNIT], 6);                   	 						//A
-      bitSet(valuechar[REGMODE], 4);                    						//DC
+    case B0010:                                                     //DCA
+      bitSet(valuechar[REGUNIT], 6);                                //A
+      bitSet(valuechar[REGMODE], 4);                                //DC
       break;
-    case B0011:                                         						//ACA
-      bitSet(valuechar[REGUNIT], 6);                    						//A
-      bitSet(valuechar[REGMODE], 3);                    						//AC
+    case B0011:                                                     //ACA
+      bitSet(valuechar[REGUNIT], 6);                                //A
+      bitSet(valuechar[REGMODE], 3);                                //AC
       break;
-    case B0100:                                         						//Ohm
-      bitSet(valuechar[REGUNIT], 5);                    						//Ohm
+    case B0100:                                                     //Ohm
+      bitSet(valuechar[REGUNIT], 5);                                //Ohm
       break;
-    case B0101:                                         						//Cap
-      bitSet(valuechar[REGUNIT], 2);                    						//Cap
+    case B0101:                                                     //Cap
+      bitSet(valuechar[REGUNIT], 2);                                //Cap
       break;
-    case B0110:                                         						//Hz
-      bitSet(valuechar[REGUNIT], 3);                    						//Hz
+    case B0110:                                                     //Hz
+      bitSet(valuechar[REGUNIT], 3);                                //Hz
       break;
-    case B0111:                                         						//Duty
-      bitSet(valuechar[REGSCALE], 1);                   						//Duty
+    case B0111:                                                     //Duty
+      bitSet(valuechar[REGSCALE], 1);                               //Duty
       break;
-    case B1000:                                         						//TempC
-      bitSet(valuechar[REGUNIT], 1);                    						//TempC
+    case B1000:                                                     //TempC
+      bitSet(valuechar[REGUNIT], 1);                                //TempC
       break;
-    case B1001:                                         						//TempF
-      bitSet(valuechar[REGUNIT], 0);                   	 						//TempF
+    case B1001:                                                     //TempF
+      bitSet(valuechar[REGUNIT], 0);                                //TempF
       break;
-    case B1010:                                         						//Diode
-      bitSet(valuechar[REGSCALE], 2);                   						//Diode
+    case B1010:                                                     //Diode
+      bitSet(valuechar[REGSCALE], 2);                               //Diode
       break;
-    case B1011:                                         						//Continuity
-      bitSet(valuechar[REGSCALE], 3);                   						//Continuity
+    case B1011:                                                     //Continuity
+      bitSet(valuechar[REGSCALE], 3);                               //Continuity
       break;
-    case B1100:                                         						//hFE
-      bitSet(valuechar[REGUNIT], 4);                    						//hFE
+    case B1100:                                                     //hFE
+      bitSet(valuechar[REGUNIT], 4);                                //hFE
       break;
     default:
       break;
@@ -480,17 +497,17 @@ void parseMeterPlus() {
 
   //scale
   switch (scale) {
-    case B010:                                          						//micro
-      bitSet(valuechar[REGSCALE], 7);                   						//micro
+    case B010:                                                      //micro
+      bitSet(valuechar[REGSCALE], 7);                               //micro
       break;
-    case B011:                                          						//milli
-      bitSet(valuechar[REGSCALE], 6);                   						//milli
+    case B011:                                                      //milli
+      bitSet(valuechar[REGSCALE], 6);                               //milli
       break;
-    case B101:                                          						//kilo
-      bitSet(valuechar[REGSCALE], 5);                   						//kilo
+    case B101:                                                      //kilo
+      bitSet(valuechar[REGSCALE], 5);                               //kilo
       break;
-    case B110:                                          						//mega
-      bitSet(valuechar[REGSCALE], 4);                   						//mega
+    case B110:                                                      //mega
+      bitSet(valuechar[REGSCALE], 4);                               //mega
       break;
     default:
       break;
@@ -505,12 +522,12 @@ void parseMeterPlus() {
   DEBUG_MSG("D: B35tPlus PAIR2: %04X\n", temp16);
 
   // decode and set appropriate bits in valuechar
-  bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));    						// HOLD
-  bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));    						// DELTA
-  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));    						// AUTORANGE
-  bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));  						// MIN
-  bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));  						// MAX
-  if (bitRead(temp16, 3) == 1)                             						// LOW BAT
+  bitWrite(valuechar[REGMODE], 1, bitRead(temp16, 0));                // HOLD
+  bitWrite(valuechar[REGMODE], 2, bitRead(temp16, 1));                // DELTA
+  bitWrite(valuechar[REGMODE], 5, bitRead(temp16, 2));                // AUTORANGE
+  bitWrite(valuechar[REGMINMAX], 4, bitRead(temp16, 4));              // MIN
+  bitWrite(valuechar[REGMINMAX], 5, bitRead(temp16, 5));              // MAX
+  if (bitRead(temp16, 3) == 1)                                        // LOW BAT
     meterPlusLowBat = true;
   else
     meterPlusLowBat = false;
@@ -801,35 +818,42 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
   if (isNotify == true && length <= rawBufferSize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
 
     //DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
-    DEBUG_MSG("D: Notify callback len=%d (UUID OK)\n", length);
+    //DEBUG_MSG("D: Notify callback len=%d (UUID OK)\n", length);
 
     if (memcmp(rawvalbuf, pData, length) != 0) {                                // if new data <> old data
+      DEBUG_MSG("D: Notify callback len=%d (UUID OK), new frame\n", length);
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
         memcpy(rawvalbuf, pData, length);
 
+        if ((length == replySizePlus) && (rawvalbuf[1] >= 0xf0)) {              // if meter PLUS detected
+          if (meterIsPlus == false) {
+            meterIsPlus = true;
+            DEBUG_MSG(" - type B35TPlus\n");
+          }
+          newBleData = true;
+        } else if ((length == replySizeNorm) && (rawvalbuf[12] == 0x0d) && (rawvalbuf[13] == 0x0a)) {
+          if (meterIsPlus == true) {
+            meterIsPlus = false;
+            DEBUG_MSG(" - type B35T\n");
+          }
+          newBleData = true;
+        } else {
+          DEBUG_MSG(" - type UNKNOWN\n");
+        }
+
 #ifdef MYDEBUG
-        DEBUG_MSG("D: RAW BUFF: [ ");
+        DEBUG_MSG(" - RAW BUFF: [ ");
         for (uint8_t i = 0; i < length; i++) {
           DEBUG_MSG("%02X ", rawvalbuf[i]);
         }
         DEBUG_MSG("]\n");
 #endif
 
-        if ((length == replySizePlus) && (rawvalbuf[1] >= 0xf0)) {              // if meter PLUS detected
-          if (meterIsPlus == false) {
-            meterIsPlus = true;
-            DEBUG_MSG("D: Type B35TPlus\n");
-          }
-          newBleData = true;
-        } else if ((length == replySizeNorm) && (rawvalbuf[12] == 0x0d) && (rawvalbuf[13] == 0x0a)) {
-          if (meterIsPlus == true) {
-            meterIsPlus = false;
-            DEBUG_MSG("D: Type B35T\n");
-          }
-          newBleData = true;
-        }
-
+      } else {
+        DEBUG_MSG(" - skipped, previous frame still processed\n");
       }
+    } else {
+      //DEBUG_MSG("D: Notify callback len=%d (UUID OK), frame same as previous one\n", length);
     }
     lastBleNotify = millis();
   }
@@ -852,7 +876,7 @@ static void notifyTest() {
         memcpy(rawvalbuf, _pData, replySizePlus);
 
 #ifdef MYDEBUG
-        DEBUG_MSG("D: RAW BUFF: [ ");
+        DEBUG_MSG(" - RAW BUFF: [ ");
         for (uint8_t i = 0; i < replySizePlus; i++) {
           DEBUG_MSG("%02X ", rawvalbuf[i]);
         }
@@ -1075,6 +1099,8 @@ void loop() {
     }
 
   }
+
+  buzzCheck();
 
 #ifdef BATMETERI2C
   if (millis() > batNextReadTime) {
