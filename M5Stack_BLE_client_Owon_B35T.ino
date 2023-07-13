@@ -9,7 +9,8 @@
 */
 
 // M5Stack_BLE_client_Owon_B35T.ino
-// 2018 Reaper7 (tested on M5Stack)
+// 2023 Reaper7 (tested on M5Stack)
+// part for B35TPlus based on https://github.com/DeanCording/owonb35 by DeanCording
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -218,38 +219,66 @@ const uint8_t MAX17043VCELLADDR=0x02;                                           
 */
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+uint16_t digitsFromBuff() {
+  uint16_t outval=0;
+
+  if (valuechar[REGDIG1] >= 0x30 && valuechar[REGDIG1] <= 0x39)
+    outval += (valuechar[REGDIG1] - 0x30) * 1000;
+  if (valuechar[REGDIG2] >= 0x30 && valuechar[REGDIG2] <= 0x39)
+    outval += (valuechar[REGDIG2] - 0x30) * 100;
+  if (valuechar[REGDIG3] >= 0x30 && valuechar[REGDIG3] <= 0x39)
+    outval += (valuechar[REGDIG3] - 0x30) * 10;
+  if (valuechar[REGDIG4] >= 0x30 && valuechar[REGDIG4] <= 0x39)
+    outval += (valuechar[REGDIG4] - 0x30) * 1;
+
+  return (outval);
+}
+//------------------------------------------------------------------------------
+float valFromDigits() {
+  float outval = 0.0;
+  uint8_t decpoint = valuechar[REGPOINT] & 0x07;
+  uint8_t decimal = 0;
+
+  switch (decpoint) {
+    case B001:
+      decimal = 1;
+      break;
+    case B010:
+      decimal = 2;
+      break;
+    case B100:
+      decimal = 3;
+      break;
+    default:
+      break;
+  }
+
+  outval = (float)digitsFromBuff() / pow(10.0, decimal);
+
+  return (outval);
+}
+//------------------------------------------------------------------------------
 void buzzCheck() {
   if (buzzOn == true) {
-    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && ((valuechar[REGDIG1] > 0x30) || (valuechar[REGDIG2] > 0x30) || (valuechar[REGDIG3] >= 0x33)))) {
+    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (valFromDigits() >= 30.0))) {
       buzzOn = false;
-      DEBUG_MSG("D: Buzz Off\n");
+      DEBUG_MSG("D: Buzz OFF\n");
     }
   } else {
-    if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (valuechar[REGDIG1] == 0x30) && (valuechar[REGDIG2] == 0x30) && (valuechar[REGDIG3] >= 0x30) && (valuechar[REGDIG3] < 0x33)) {
-      buzzOn = true;
-      DEBUG_MSG("D: Buzz On\n");
-    }  
+    if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
+      if (valFromDigits() < 30.0) {
+        buzzOn = true;
+        DEBUG_MSG("D: Buzz ON\n");
+      }
+    }
   }
 }
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 void drawIcon(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, const uint8_t* data, uint16_t color) {
   M5.Lcd.setBitmapColor(color, BACKGROUND);
-  //M5.Lcd.pushImage((int32_t)x0, (int32_t)y0, (uint32_t)w, (uint32_t)h, const_cast<uint8_t*>(data), false);
   M5.Lcd.pushImage((int32_t)x0, (int32_t)y0, (uint32_t)w, (uint32_t)h, const_cast<uint8_t*>(data), 0, false);
 }
-//------------------------------------------------------------------------------
-/*
-void batMeterInit() {                                                           // reset MAX17043
-  Wire.beginTransmission(MAX17043ADDR);
-  Wire.write(MAX17043CMDADDR);
-  //Wire.write(0x40);                                                           // quick start with restart fuel-gauge calculations
-  Wire.write(0x54);                                                             // normal reset
-  Wire.write(0x00);
-  Wire.endTransmission();
-  delay(200);
-}
-*/
 //------------------------------------------------------------------------------
 void batCheckDraw() {
   //based on soc
@@ -312,15 +341,16 @@ void drawButtons() {
 }
 //------------------------------------------------------------------------------
 void drawBarGraph(bool active = true) { 
-  uint16_t dig1=0;
-  uint16_t dig2=0;
-  uint16_t dig3=0;
-  uint16_t dig4=0;
+  //uint16_t dig1=0;
+  //uint16_t dig2=0;
+  //uint16_t dig3=0;
+  //uint16_t dig4=0;
   uint16_t digall=0;
 
   if (active == false) {
     M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_HEIGHT - 70, 2, COLORNOTACTIVE); // bargraph bottom init scale
-  } else {  
+  } else {
+/*
     if (valuechar[REGDIG1] >= 0x30 && valuechar[REGDIG1] <= 0x39)
       dig1 = (valuechar[REGDIG1] - 0x30) * 1000;
     if (valuechar[REGDIG2] >= 0x30 && valuechar[REGDIG2] <= 0x39)
@@ -330,6 +360,8 @@ void drawBarGraph(bool active = true) {
     if (valuechar[REGDIG4] >= 0x30 && valuechar[REGDIG4] <= 0x39)
       dig4 = (valuechar[REGDIG4] - 0x30) * 1;
     digall = dig1 + dig2 + dig3 + dig4;
+*/
+    digall = digitsFromBuff();
   }
 
   uint16_t mapval = map(digall,0,6000,0,240);
@@ -397,7 +429,11 @@ void displayShow(bool active = false) {
 }
 //------------------------------------------------------------------------------
 void parseMeterPlus() {
-  //your code for parse meterPlus from rawvalbuf to b35t format and fill valuechar buffer
+  //based on: https://github.com/DeanCording/owonb35 by DeanCording
+  //protocol: https://github.com/DeanCording/owonb35#protocol
+  //code:     https://github.com/DeanCording/owonb35/blob/master/owonb35.c#L277
+  //
+  //parse meterPlus from rawvalbuf to b35t format and fill valuechar buffer
   //rawvalbuf e.x. 19 F0 04 00 49 04
 
   uint16_t temp16 = 0;
