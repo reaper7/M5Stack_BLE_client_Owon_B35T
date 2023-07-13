@@ -1069,13 +1069,13 @@ void loop() {
 
     if (startBleScanning != 0 && millis() > (startBleScanning + (scanTime*1000))) {
       startBleScanning = 0;
-      buzzCheck();
       return; 
     }
 
     if (startBleScanning == 0) {
       if (firstNotify == false) {
         displayShow();
+        buzzCheck();
         if (meterIsPlus) {
           drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, COLORNOTACTIVE);
           meterPlusLowBatLast = !meterPlusLowBat;
