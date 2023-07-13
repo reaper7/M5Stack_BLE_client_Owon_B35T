@@ -575,6 +575,14 @@ void displayValues() {
     memcpy(valuechar, rawvalbuf, meterReplySize);                               // simply copy rawvalbuf to valuechar
   }
 
+#ifdef MYDEBUG
+  DEBUG_MSG(" - OUT BUFF: [ ");
+  for (uint8_t i = 0; i < meterReplySize; i++) {
+    DEBUG_MSG("%02X ", rawvalbuf[i]);
+  }
+  DEBUG_MSG("]\n");
+#endif
+
   if (firstNotify == true) {
     displayShow();
     M5.Lcd.setTextColor(FONTCOLORVALUE, BACKGROUND);
