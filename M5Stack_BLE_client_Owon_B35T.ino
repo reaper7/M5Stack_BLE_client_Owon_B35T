@@ -255,6 +255,8 @@ float valFromDigits() {
 
   outval = (float)digitsFromBuff() / pow(10.0, decimal);
 
+  DEBUG_MSG("D: Buzz VALUE : %09.4f\n", outval);
+
   return (outval);
 }
 //------------------------------------------------------------------------------
@@ -614,10 +616,12 @@ void displayValues() {
 #ifdef MYDEBUG
   DEBUG_MSG(" - OUT BUFF: [ ");
   for (uint8_t i = 0; i < meterReplySize; i++) {
-    DEBUG_MSG("%02X ", rawvalbuf[i]);
+    DEBUG_MSG("%02X ", valuechar[i]);
   }
   DEBUG_MSG("]\n");
 #endif
+
+  buzzCheck();
 
   if (firstNotify == true) {
     displayShow();
@@ -869,6 +873,14 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
       if (newBleData == false) {                                                // and if old data are displayed then copy new data
         memcpy(rawvalbuf, pData, length);
 
+#ifdef MYDEBUG
+        DEBUG_MSG(" - RAW BUFF: [ ");
+        for (uint8_t i = 0; i < length; i++) {
+          DEBUG_MSG("%02X ", rawvalbuf[i]);
+        }
+        DEBUG_MSG("]\n");
+#endif
+
         if ((length == replySizePlus) && (rawvalbuf[1] >= 0xf0)) {              // if meter PLUS detected
           if (meterIsPlus == false) {
             meterIsPlus = true;
@@ -884,14 +896,6 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
         } else {
           DEBUG_MSG(" - type UNKNOWN\n");
         }
-
-#ifdef MYDEBUG
-        DEBUG_MSG(" - RAW BUFF: [ ");
-        for (uint8_t i = 0; i < length; i++) {
-          DEBUG_MSG("%02X ", rawvalbuf[i]);
-        }
-        DEBUG_MSG("]\n");
-#endif
 
       } else {
         DEBUG_MSG(" - skipped, previous frame still processed\n");
@@ -1065,6 +1069,7 @@ void loop() {
 
     if (startBleScanning != 0 && millis() > (startBleScanning + (scanTime*1000))) {
       startBleScanning = 0;
+      buzzCheck();
       return; 
     }
 
@@ -1143,8 +1148,6 @@ void loop() {
     }
 
   }
-
-  buzzCheck();
 
 #ifdef BATMETERI2C
   if (millis() > batNextReadTime) {
