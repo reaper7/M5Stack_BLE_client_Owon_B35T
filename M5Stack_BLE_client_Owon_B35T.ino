@@ -240,40 +240,51 @@ uint16_t digitsFromBuff() {
 //------------------------------------------------------------------------------
 float valFromDigits() {
   float outval = 0.0;
-  uint8_t decpoint = valuechar[REGPOINT] & 0x07;
-  uint8_t decimal = 0;
 
-  switch (decpoint) {
-    case B001:
-      decimal = 1;
-      break;
-    case B010:
-      decimal = 2;
-      break;
-    case B100:
-      decimal = 3;
-      break;
-    default:
-      break;
+  if (overLoad == true)                                                         // if overloaded
+    return (NAN);
+  else {
+
+    uint8_t decpoint = valuechar[REGPOINT] & 0x07;
+    uint8_t decimal = 0;
+
+    switch (decpoint) {
+      case B001:
+        decimal = 1;
+        break;
+      case B010:
+        decimal = 2;
+        break;
+      case B100:
+        decimal = 3;
+        break;
+      default:
+        break;
+    }
+
+    outval = (float)digitsFromBuff() / pow(10.0, decimal);
+
   }
 
-  outval = (float)digitsFromBuff() / pow(10.0, decimal);
-
-  DEBUG_MSG("D: Buzz VALUE : %09.4f\n", outval);
+  //DEBUG_MSG("D: VALUE : %06.4f\n", outval);
 
   return (outval);
 }
 //------------------------------------------------------------------------------
 void buzzCheck() {
+  float val = valFromDigits();
+
   if (buzzOn == true) {
-    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (valFromDigits() >= 30.0))) {
+    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
       buzzOn = false;
+      M5.Speaker.end();
       DEBUG_MSG("D: Buzz OFF\n");
     }
   } else {
     if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
-      if (valFromDigits() < 30.0) {
+      if (val < 30.0) {
         buzzOn = true;
+        M5.Speaker.tone(990);
         DEBUG_MSG("D: Buzz ON\n");
       }
     }
@@ -591,7 +602,6 @@ void parseMeterPlus() {
     valuechar[REGDIG4] = 0x30 + (int(temp16 / 1) % 10);
   } else {
     memcpy(valuechar, overLoadFrame, 5);
-    DEBUG_MSG(" - VALUE : OverLoad\n");
   }
 
 }
@@ -614,6 +624,18 @@ void displayValues() {
   DEBUG_MSG("]\n");
 #endif
 
+  if (memcmp(valuechar, overLoadFrame, 5) == 0) {                               // if overloaded
+    if (overLoad == false) {
+      overLoad = true;
+      DEBUG_MSG(" - OVERLOAD: YES\n");
+    }
+  } else {
+    if (overLoad == true) {
+      overLoad = false;
+      DEBUG_MSG(" - OVERLOAD: NO\n");
+    }
+  }
+
   if (((valuechar[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ) || (buzzOn == true)) {
     buzzCheck();
   }
@@ -627,7 +649,7 @@ void displayValues() {
     //drawIcon(WBLEPOSX, TOPROWPOSY, ICONW, ICONH, BLE_BMP, deviceBleConnected == true?COLORICONBLE:COLORNOTACTIVE);
     firstNotify = false;
   } else {
-    drawBarGraph();
+    drawBarGraph(!overLoad);
   }  
 
   if (valuetmp[REGUNIT] != valuechar[REGUNIT]) {                                // unit
@@ -799,73 +821,46 @@ void displayValues() {
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(FONTCOLORVALUE, BACKGROUND);
 
-  if (memcmp(valuechar, overLoadFrame, 5) != 0) {                               // if not overloaded
-    if (overLoad == true)
-      overLoad == false;
-
-    //
-  } else {
-    if (overLoad == false)
-      overLoad == true;
-
-    //
-  }
-
   if (valuetmp[REGPLUSMINUS] != valuechar[REGPLUSMINUS]) {                      // sign "-"
     valuetmp[REGPLUSMINUS] = valuechar[REGPLUSMINUS];
     M5.Lcd.fillRect(SIGNPOSX, SIGNPOSY, SIGNW, SIGNH, (valuetmp[REGPLUSMINUS] & FLAGMINUS) == FLAGMINUS?FONTCOLORVALUE:BACKGROUND);
   }
 
-  DEBUG_MSG(" - DIGITS: ");
-
   if (valuetmp[REGDIG1] != valuechar[REGDIG1]) {                                // digits
     valuetmp[REGDIG1] = valuechar[REGDIG1];
-    if (valuetmp[REGDIG1] >= 0x30 && valuetmp[REGDIG1] <= 0x39) {
+    if (valuetmp[REGDIG1] >= 0x30 && valuetmp[REGDIG1] <= 0x39)
       M5.Lcd.drawChar(valuetmp[REGDIG1], DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-      DEBUG_MSG("%c ", valuetmp[REGDIG1]);
-    } else {
-      M5.Lcd.fillRect(DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
-      DEBUG_MSG("  ");
-    }
+    else
+      M5.Lcd.fillRect(DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);  
   }
 
   if (valuetmp[REGDIG2] != valuechar[REGDIG2]) {
     valuetmp[REGDIG2] = valuechar[REGDIG2];
-    if (valuetmp[REGDIG2] >= 0x30 && valuetmp[REGDIG2] <= 0x39) {
+    if (valuetmp[REGDIG2] >= 0x30 && valuetmp[REGDIG2] <= 0x39)
       M5.Lcd.drawChar(valuetmp[REGDIG2], DIGITSPOSX + (1 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-      DEBUG_MSG("%c ", valuetmp[REGDIG2]);
-    } else {
+    else
       M5.Lcd.fillRect(DIGITSPOSX + (1 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
-      DEBUG_MSG("  ");
-    } 
   }
 
   if (valuetmp[REGDIG3] != valuechar[REGDIG3]) {
     valuetmp[REGDIG3] = valuechar[REGDIG3];
-    if (valuetmp[REGDIG3] >= 0x30 && valuetmp[REGDIG3] <= 0x39) {
+    if (valuetmp[REGDIG3] >= 0x30 && valuetmp[REGDIG3] <= 0x39)
       M5.Lcd.drawChar(valuetmp[REGDIG3], DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-      DEBUG_MSG("%c ", valuetmp[REGDIG3]);
-    } else if (valuetmp[REGDIG3] == 0x3a) {
+    else if (valuetmp[REGDIG3] == 0x3a)
       M5.Lcd.drawNumber(1, DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-      DEBUG_MSG("l ");
-    } else {
+    else
       M5.Lcd.fillRect(DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
-      DEBUG_MSG("  ");
-    }
   }
 
   if (valuetmp[REGDIG4] != valuechar[REGDIG4]) {
     valuetmp[REGDIG4] = valuechar[REGDIG4];
-    if (valuetmp[REGDIG4] >= 0x30 && valuetmp[REGDIG4] <= 0x39) {
+    if (valuetmp[REGDIG4] >= 0x30 && valuetmp[REGDIG4] <= 0x39)
       M5.Lcd.drawChar(valuetmp[REGDIG4], DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-      DEBUG_MSG("%c", valuetmp[REGDIG4]);
-    } else {
+    else
       M5.Lcd.fillRect(DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
-      DEBUG_MSG("  ");
-    }
   }
 
-  DEBUG_MSG("\n");
+  DEBUG_MSG(" - DIGITS: %c %c %c %c\n", valuetmp[REGDIG1], valuetmp[REGDIG2], valuetmp[REGDIG3], valuetmp[REGDIG4]);
 
   if (valuetmp[REGPOINT] != valuechar[REGPOINT]) {                              // decimal point
     valuetmp[REGPOINT] = valuechar[REGPOINT];
@@ -1059,6 +1054,7 @@ void setup() {
   WiFi.mode(WIFI_OFF);
 
   M5.begin();
+  M5.Power.begin();
   if(digitalRead(BUTTON_A_PIN) == 0) {
     Serial.println("Will Load menu binary");
     updateFromFS(SD);
