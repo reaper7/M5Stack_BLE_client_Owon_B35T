@@ -220,7 +220,7 @@ const uint8_t MAX17043VCELLADDR=0x02;                                           
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 uint16_t digitsFromBuff() {
-  uint16_t outval=0;
+  uint16_t outval = 0;
 
   if (valuechar[REGDIG1] >= 0x30 && valuechar[REGDIG1] <= 0x39)
     outval += (valuechar[REGDIG1] - 0x30) * 1000;
@@ -343,26 +343,11 @@ void drawButtons() {
 }
 //------------------------------------------------------------------------------
 void drawBarGraph(bool active = true) { 
-  //uint16_t dig1=0;
-  //uint16_t dig2=0;
-  //uint16_t dig3=0;
-  //uint16_t dig4=0;
   uint16_t digall=0;
 
   if (active == false) {
     M5.Lcd.fillRect(BARGRAPHPOSX, BARGRAPHPOSY, TFT_HEIGHT - 70, 2, COLORNOTACTIVE); // bargraph bottom init scale
   } else {
-/*
-    if (valuechar[REGDIG1] >= 0x30 && valuechar[REGDIG1] <= 0x39)
-      dig1 = (valuechar[REGDIG1] - 0x30) * 1000;
-    if (valuechar[REGDIG2] >= 0x30 && valuechar[REGDIG2] <= 0x39)
-      dig2 = (valuechar[REGDIG2] - 0x30) * 100;
-    if (valuechar[REGDIG3] >= 0x30 && valuechar[REGDIG3] <= 0x39)
-      dig3 = (valuechar[REGDIG3] - 0x30) * 10;
-    if (valuechar[REGDIG4] >= 0x30 && valuechar[REGDIG4] <= 0x39)
-      dig4 = (valuechar[REGDIG4] - 0x30) * 1;
-    digall = dig1 + dig2 + dig3 + dig4;
-*/
     digall = digitsFromBuff();
   }
 
@@ -621,7 +606,9 @@ void displayValues() {
   DEBUG_MSG("]\n");
 #endif
 
-  buzzCheck();
+  if (((valuechar[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ) || (buzzOn == true)) {
+    buzzCheck();
+  }
 
   if (firstNotify == true) {
     displayShow();
@@ -1075,7 +1062,9 @@ void loop() {
     if (startBleScanning == 0) {
       if (firstNotify == false) {
         displayShow();
-        buzzCheck();
+        if (buzzOn == true) {
+          buzzCheck();
+        }
         if (meterIsPlus) {
           drawIcon(WACCUPOSX, TOPROWPOSY, ICONW, ICONH, ACCU_BMP, COLORNOTACTIVE);
           meterPlusLowBatLast = !meterPlusLowBat;
