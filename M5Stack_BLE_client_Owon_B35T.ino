@@ -62,12 +62,16 @@ char valuechar[meterReplySize];                                                 
 const uint8_t rawBufferSize = 14;                                               // number of bytes for reading meter
 char rawvalbuf[rawBufferSize];                                                  // meter reply raw buffer
 
+const uint8_t overLoadFrame[] = { 0x2b, 0x3f, 0x30, 0x3a, 0x3f };               // first 5 bytes of frame if overload
+
 const uint8_t replySizeNorm = 14;                                               // notify size for b35t
 const uint8_t replySizePlus = 6;                                                // notify size for b35tPLUS
 
 static boolean meterIsPlus = false;                                             // flag for meter b35tPLUS
 static boolean meterPlusLowBat = false;                                         // meter b35tPLUS Low Bat
 static boolean meterPlusLowBatLast = !meterPlusLowBat;
+
+static boolean overLoad = false;                                                // overload flag
 
 static boolean buzzOn = false;                                                  // buzzer on
 
@@ -454,16 +458,16 @@ void parseMeterPlus() {
   //decinal point
   switch (decimal) {
     case B000:
-      valuechar[REGPOINT]=FLAGPOINT0;
+      valuechar[REGPOINT] = FLAGPOINT0;
       break;
     case B001:
-      valuechar[REGPOINT]=FLAGPOINT3;
+      valuechar[REGPOINT] = FLAGPOINT3;
       break;
     case B010:
-      valuechar[REGPOINT]=FLAGPOINT2;
+      valuechar[REGPOINT] = FLAGPOINT2;
       break;
     case B011:
-      valuechar[REGPOINT]=FLAGPOINT1;
+      valuechar[REGPOINT] = FLAGPOINT1;
       break;
     default:
       break;
@@ -569,22 +573,26 @@ void parseMeterPlus() {
   DEBUG_MSG("D: B35tPlus PAIR3: %04X\n", temp16);
 
   // parse
-  if (temp16 < 0x7fff) {
-    measurement = (float)temp16 / pow(10.0, decimal);
-    valuechar[REGPLUSMINUS]=FLAGPLUS;                                          	// set flag plus 
+  if (decimal < 0x07) {                                                         // if not overloaded
+    if (temp16 < 0x7fff) {
+      measurement = (float)temp16 / pow(10.0, decimal);
+      valuechar[REGPLUSMINUS]=FLAGPLUS;                                         // set flag plus 
+    } else {
+      measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
+      valuechar[REGPLUSMINUS]=FLAGMINUS;                                        // set flag minus
+      temp16 = temp16 & 0x7fff;
+    }
+
+    DEBUG_MSG(" - VALUE : %06.4f\n", measurement);
+
+    valuechar[REGDIG1] = 0x30 + (int(temp16 / 1000) % 10);
+    valuechar[REGDIG2] = 0x30 + (int(temp16 / 100) % 10);
+    valuechar[REGDIG3] = 0x30 + (int(temp16 / 10) % 10);
+    valuechar[REGDIG4] = 0x30 + (int(temp16 / 1) % 10);
   } else {
-    measurement = -1 * (float)(temp16 & 0x7fff) / pow(10.0, decimal);
-    valuechar[REGPLUSMINUS]=FLAGMINUS;                                          // set flag minus
-    temp16 = temp16 & 0x7fff;
+    memcpy(valuechar, overLoadFrame, 5);
+    DEBUG_MSG(" - VALUE : OverLoad\n");
   }
-
-  valuechar[REGDIG1] = 0x30 + (int(temp16 / 1000) % 10);
-  valuechar[REGDIG2] = 0x30 + (int(temp16 / 100) % 10);
-  valuechar[REGDIG3] = 0x30 + (int(temp16 / 10) % 10);
-  valuechar[REGDIG4] = 0x30 + (int(temp16 / 1) % 10);
-
-  DEBUG_MSG(" - VALUE : %09.4f\n", measurement);
-  DEBUG_MSG(" - DIGITS: %c %c %c %c\n", valuechar[REGDIG1], valuechar[REGDIG2], valuechar[REGDIG3], valuechar[REGDIG4]);
 
 }
 //------------------------------------------------------------------------------
@@ -791,51 +799,73 @@ void displayValues() {
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(FONTCOLORVALUE, BACKGROUND);
 
+  if (memcmp(valuechar, overLoadFrame, 5) != 0) {                               // if not overloaded
+    if (overLoad == true)
+      overLoad == false;
+
+    //
+  } else {
+    if (overLoad == false)
+      overLoad == true;
+
+    //
+  }
+
   if (valuetmp[REGPLUSMINUS] != valuechar[REGPLUSMINUS]) {                      // sign "-"
     valuetmp[REGPLUSMINUS] = valuechar[REGPLUSMINUS];
     M5.Lcd.fillRect(SIGNPOSX, SIGNPOSY, SIGNW, SIGNH, (valuetmp[REGPLUSMINUS] & FLAGMINUS) == FLAGMINUS?FONTCOLORVALUE:BACKGROUND);
   }
 
+  DEBUG_MSG(" - DIGITS: ");
+
   if (valuetmp[REGDIG1] != valuechar[REGDIG1]) {                                // digits
     valuetmp[REGDIG1] = valuechar[REGDIG1];
-    if (valuetmp[REGDIG1] >= 0x30 && valuetmp[REGDIG1] <= 0x39)
+    if (valuetmp[REGDIG1] >= 0x30 && valuetmp[REGDIG1] <= 0x39) {
       M5.Lcd.drawChar(valuetmp[REGDIG1], DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else if (valuetmp[REGDIG1] == 0x3a)
-      M5.Lcd.drawNumber(1, DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else
-      M5.Lcd.fillRect(DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);  
+      DEBUG_MSG("%c ", valuetmp[REGDIG1]);
+    } else {
+      M5.Lcd.fillRect(DIGITSPOSX + (0 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
+      DEBUG_MSG("  ");
+    }
   }
 
   if (valuetmp[REGDIG2] != valuechar[REGDIG2]) {
     valuetmp[REGDIG2] = valuechar[REGDIG2];
     if (valuetmp[REGDIG2] >= 0x30 && valuetmp[REGDIG2] <= 0x39) {
       M5.Lcd.drawChar(valuetmp[REGDIG2], DIGITSPOSX + (1 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    } else if (valuetmp[REGDIG2] == 0x3a) {
-      M5.Lcd.drawNumber(1, DIGITSPOSX + (1 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
+      DEBUG_MSG("%c ", valuetmp[REGDIG2]);
     } else {
       M5.Lcd.fillRect(DIGITSPOSX + (1 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
+      DEBUG_MSG("  ");
     } 
   }
 
   if (valuetmp[REGDIG3] != valuechar[REGDIG3]) {
     valuetmp[REGDIG3] = valuechar[REGDIG3];
-    if (valuetmp[REGDIG3] >= 0x30 && valuetmp[REGDIG3] <= 0x39)
+    if (valuetmp[REGDIG3] >= 0x30 && valuetmp[REGDIG3] <= 0x39) {
       M5.Lcd.drawChar(valuetmp[REGDIG3], DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else if (valuetmp[REGDIG3] == 0x3a)
+      DEBUG_MSG("%c ", valuetmp[REGDIG3]);
+    } else if (valuetmp[REGDIG3] == 0x3a) {
       M5.Lcd.drawNumber(1, DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else
-      M5.Lcd.fillRect(DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND); 
+      DEBUG_MSG("l ");
+    } else {
+      M5.Lcd.fillRect(DIGITSPOSX + (2 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
+      DEBUG_MSG("  ");
+    }
   }
 
   if (valuetmp[REGDIG4] != valuechar[REGDIG4]) {
     valuetmp[REGDIG4] = valuechar[REGDIG4];
-    if (valuetmp[REGDIG4] >= 0x30 && valuetmp[REGDIG4] <= 0x39)
+    if (valuetmp[REGDIG4] >= 0x30 && valuetmp[REGDIG4] <= 0x39) {
       M5.Lcd.drawChar(valuetmp[REGDIG4], DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else if (valuetmp[REGDIG4] == 0x3a)
-      M5.Lcd.drawNumber(1, DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, DIGITSFONT);
-    else
-      M5.Lcd.fillRect(DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND); 
+      DEBUG_MSG("%c", valuetmp[REGDIG4]);
+    } else {
+      M5.Lcd.fillRect(DIGITSPOSX + (3 * DIGITSDISTANCE), DIGITSPOSY, 63, 94, BACKGROUND);
+      DEBUG_MSG("  ");
+    }
   }
+
+  DEBUG_MSG("\n");
 
   if (valuetmp[REGPOINT] != valuechar[REGPOINT]) {                              // decimal point
     valuetmp[REGPOINT] = valuechar[REGPOINT];
