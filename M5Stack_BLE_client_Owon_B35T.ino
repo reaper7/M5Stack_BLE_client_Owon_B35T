@@ -710,7 +710,8 @@ void displayValues() {
       valuetmp[REGSCALE] &= ~(FLAGSCALEBUZZ);
     }
 
-    drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuetmp[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?COLORICONBUZZ:COLORNOTACTIVE);
+    //drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuetmp[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?COLORICONBUZZ:COLORNOTACTIVE);
+    drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuetmp[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?(buzzOn == true?COLORICONBUZZ:TFT_LIGHTGREY):COLORNOTACTIVE);
 
     if ((valuechar[REGSCALE] & FLAGSCALEMEGA) == FLAGSCALEMEGA) {
       valuetmp[REGSCALE] |= FLAGSCALEMEGA;
@@ -1127,12 +1128,12 @@ void loop() {
     if (deviceBleWriteAvailable == true) {
 
       if (M5.BtnA.wasReleased()) {
-        if (btnNumber > 1) {
+        if (btnNumber > 1)
           btnNumber--;
-          owonBtnArray[0] = btnNumber;
-          drawButtons();
-          DEBUG_MSG("I: BTN set [%s]\n", btnName[btnNumber-1]);
-        }
+        else
+          btnNumber = buttonsMax;
+        owonBtnArray[0] = btnNumber;
+        drawButtons();
       }
 
       if (M5.BtnB.wasReleased()) {
@@ -1152,12 +1153,12 @@ void loop() {
       }
 
       if (M5.BtnC.wasReleased()) {
-        if (btnNumber < buttonsMax) {
+        if (btnNumber < buttonsMax)
           btnNumber++;
-          owonBtnArray[0] = btnNumber;
-          drawButtons();
-          DEBUG_MSG("I: BTN set [%s]\n", btnName[btnNumber-1]);
-        }
+        else
+          btnNumber = 0;
+        owonBtnArray[0] = btnNumber;
+        drawButtons();
       }
 
     }
