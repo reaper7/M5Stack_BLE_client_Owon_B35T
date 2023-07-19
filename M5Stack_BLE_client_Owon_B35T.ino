@@ -278,14 +278,16 @@ void buzzCheck() {
     if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
       buzzOn = false;
       M5.Speaker.end();
-      DEBUG_MSG("D: Buzz OFF\n");
+      drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuechar[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?TFT_LIGHTGREY:COLORNOTACTIVE);
+      DEBUG_MSG("D: BUZZ OFF\n");
     }
   } else {
     if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
       if (val < 30.0) {
         buzzOn = true;
         M5.Speaker.tone(990);
-        DEBUG_MSG("D: Buzz ON\n");
+        drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, COLORICONBUZZ);
+        DEBUG_MSG("D: BUZZ ON\n");
       }
     }
   }
@@ -1128,12 +1130,12 @@ void loop() {
     if (deviceBleWriteAvailable == true) {
 
       if (M5.BtnA.wasReleased()) {
-        if (btnNumber > 1)
+        if (btnNumber > 1) {
           btnNumber--;
-        else
-          btnNumber = buttonsMax;
-        owonBtnArray[0] = btnNumber;
-        drawButtons();
+          owonBtnArray[0] = btnNumber;
+          drawButtons();
+          DEBUG_MSG("I: BTN set [%s]\n", btnName[btnNumber-1]);
+        }
       }
 
       if (M5.BtnB.wasReleased()) {
@@ -1153,12 +1155,12 @@ void loop() {
       }
 
       if (M5.BtnC.wasReleased()) {
-        if (btnNumber < buttonsMax)
+        if (btnNumber < buttonsMax) {
           btnNumber++;
-        else
-          btnNumber = 0;
-        owonBtnArray[0] = btnNumber;
-        drawButtons();
+          owonBtnArray[0] = btnNumber;
+          drawButtons();
+          DEBUG_MSG("I: BTN set [%s]\n", btnName[btnNumber-1]);
+        }
       }
 
     }
