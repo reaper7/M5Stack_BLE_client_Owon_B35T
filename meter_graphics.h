@@ -10,7 +10,7 @@
 
 // this is a part of
 // M5Stack_BLE_client_Owon_B35T.ino
-// 2018 Reaper7 (tested on M5Stack)
+// 2023 Reaper7 (tested on M5Stack)
 
 #ifndef METER_GRAPHICS_H
 #define METER_GRAPHICS_H

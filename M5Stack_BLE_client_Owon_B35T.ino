@@ -27,7 +27,7 @@
 
 #include "meter_graphics.h"
 
-#define MYDEBUG
+//#define MYDEBUG
 #ifdef MYDEBUG
 #define DEBUG_MSG(...) Serial.printf( __VA_ARGS__ )
 #else
@@ -35,7 +35,6 @@
 #endif
 
 //#define BATMETERI2C
-//#define FALSEMETER
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -275,7 +274,6 @@ void buzzCheck() {
   float val = valFromDigits();
 
   if (buzzOn == true) {
-    //if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
     if ((deviceBleConnected == false) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
       buzzOn = false;
       M5.Speaker.end();
@@ -283,7 +281,6 @@ void buzzCheck() {
       DEBUG_MSG("D: BUZZ OFF\n");
     }
   } else {
-    //if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
     if ((deviceBleConnected == true) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
       if (val < 30.0) {
         buzzOn = true;
@@ -879,11 +876,7 @@ void displayValues() {
 }
 
 static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
-#ifndef FALSEMETER
   if (isNotify == true && length <= rawBufferSize && pBLERemoteCharacteristic->getUUID().equals(charnotificationUUID)) {
-
-    //DEBUG_MSG("I: Notify callback len=%d (UUID: %s)\n", length, pBLERemoteCharacteristic->getUUID().toString().c_str());
-    //DEBUG_MSG("D: Notify callback len=%d (UUID OK)\n", length);
 
     if (memcmp(rawvalbuf, pData, length) != 0) {                                // if new data <> old data
       DEBUG_MSG("D: Notify callback len=%d (UUID OK), new frame\n", length);
@@ -913,51 +906,15 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
         } else {
           DEBUG_MSG(" - type UNKNOWN\n");
         }
-
       } else {
         DEBUG_MSG(" - skipped, previous frame still processed\n");
       }
     } else {
-      //DEBUG_MSG("D: Notify callback len=%d (UUID OK), frame same as previous one\n", length);
+      DEBUG_MSG("D: Notify callback len=%d (UUID OK), frame same as previous one\n", length);
     }
     lastBleNotify = millis();
   }
-#endif
 }
-
-#ifdef FALSEMETER
-static void notifyTest() {
-  uint8_t _pData[replySizePlus];
-  _pData[0] = 0x22;
-  _pData[1] = 0xf0;
-  _pData[2] = 0x04;
-  _pData[3] = 0x00;
-  _pData[4] = random(0xe5, 0xea);
-  _pData[5] = 0x03;
-
-
-    if (memcmp(rawvalbuf, _pData, replySizePlus) != 0) {                        // if new data <> old data
-      if (newBleData == false) {                                                // and if old data are displayed then copy new data
-        memcpy(rawvalbuf, _pData, replySizePlus);
-
-#ifdef MYDEBUG
-        DEBUG_MSG(" - RAW BUFF: [ ");
-        for (uint8_t i = 0; i < replySizePlus; i++) {
-          DEBUG_MSG("%02X ", rawvalbuf[i]);
-        }
-        DEBUG_MSG("]\n");
-#endif
-
-          if (meterIsPlus == false) {
-            meterIsPlus = true;
-          }
-      }
-      newBleData = true;
-    }
-    lastBleNotify = millis();
-
-}
-#endif
 
 class MyClientCallbacks: public BLEClientCallbacks {
   void onConnect(BLEClient *pClient) {
@@ -1050,8 +1007,9 @@ void setup() {
   Serial.begin(115200);
   DEBUG_MSG("I: Start OWON B35T Client\n");
 
+#ifdef BATMETERI2C
   Wire.begin();
-  //batMeterInit();                                                             // init MAX17043
+#endif
 
   WiFi.persistent(false);
   WiFi.enableSTA(false);
@@ -1173,14 +1131,6 @@ void loop() {
   if (millis() > batNextReadTime) {
     batCheckDraw();
     batNextReadTime = millis() + batReadEvery;
-  }
-#endif
-
-#ifdef FALSEMETER
-  static unsigned long nextMeasuring = 0;
-  if (millis() > nextMeasuring) {
-    notifyTest();
-    nextMeasuring = millis() + random(450, 1800);
   }
 #endif
 
