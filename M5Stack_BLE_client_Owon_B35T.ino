@@ -275,14 +275,16 @@ void buzzCheck() {
   float val = valFromDigits();
 
   if (buzzOn == true) {
-    if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
+    //if ((deviceBleConnected == false) || (valuechar[REGUNIT] != FLAGUNITOHM) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
+    if ((deviceBleConnected == false) || (valuechar[REGSCALE] != FLAGSCALEBUZZ) || ((valuechar[REGSCALE] == FLAGSCALEBUZZ) && (val >= 30.0)) || (overLoad == true)) {
       buzzOn = false;
       M5.Speaker.end();
       drawIcon(WBUZZPOSX, TOPROWPOSY, ICONW, ICONH, BUZZ_BMP, (valuechar[REGSCALE] & FLAGSCALEBUZZ) == FLAGSCALEBUZZ?TFT_LIGHTGREY:COLORNOTACTIVE);
       DEBUG_MSG("D: BUZZ OFF\n");
     }
   } else {
-    if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
+    //if ((deviceBleConnected == true) && (valuechar[REGUNIT] == FLAGUNITOHM) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
+    if ((deviceBleConnected == true) && (valuechar[REGSCALE] == FLAGSCALEBUZZ)) {
       if (val < 30.0) {
         buzzOn = true;
         M5.Speaker.tone(990);
